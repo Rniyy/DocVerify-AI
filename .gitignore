@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Build output
+backend/dist/
+*.tsbuildinfo
+
+# Environment variables (never commit secrets)
+.env
+.env.local
+backend/.env
+python-service/.env
+
+# Uploaded / processed documents (never commit user files)
+backend/uploads/
+backend/storage/
+python-service/tmp/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Docker
+docker-compose.override.yml

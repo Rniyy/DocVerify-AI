@@ -1,0 +1,14 @@
+# Python service dependencies.
+# Populated starting Stage 10 ("Add Python document-processing service").
+# Expected future contents (for reference — not installed yet):
+#   fastapi
+#   uvicorn[standard]
+#   python-multipart
+#   pdfplumber
+#   python-docx
+#   openpyxl
+#   pytesseract
+#   Pillow
+#   pydantic
+#   python-dotenv
+#   anthropic
