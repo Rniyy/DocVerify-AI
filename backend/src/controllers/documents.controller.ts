@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import path from "path";
 import { AppError } from "../middleware/errorHandler";
 import { extractDocument } from "../services/extraction";
+import { structureDocument } from "../services/structuring";
 
 const MIN_DOCUMENTS_REQUIRED = 2;
 
@@ -35,6 +36,7 @@ export async function uploadDocuments(req: Request, res: Response): Promise<void
         return {
           ...base,
           extracted,
+          structured: structureDocument(extracted),
           extractionError: null,
           extractionNote:
             extracted === null
