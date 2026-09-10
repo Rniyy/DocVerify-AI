@@ -27,7 +27,7 @@ export function structureDocument(extracted: ExtractionResult | null): Structure
     for (const [key, value] of Object.entries(result.fields)) {
       if (!(key in fields)) fields[key] = value;
     }
-    if (result.table) tables.push(result.table);
+    tables.push(...result.tables);
   }
 
   return { fields, tables };
