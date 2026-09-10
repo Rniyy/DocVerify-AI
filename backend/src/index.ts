@@ -1,8 +1,9 @@
-// Entry point for the Express server.
-// The actual Express app, middleware, and routes are wired up in Stage 3
-// ("Create Node.js/Express backend"). This file is a placeholder so the
-// project structure and `npm run dev` / `npm run build` scripts are in
-// place from the start.
+import { createApp } from "./app";
+import { config } from "./config/env";
 
-console.log("AI Document Comparison Assistant — backend placeholder (Stage 1). " +
-  "Express server will be implemented in Stage 3.");
+const app = createApp();
+
+app.listen(config.port, () => {
+  console.log(`AI Document Comparison Assistant backend listening on http://localhost:${config.port}`);
+  console.log(`Health check: http://localhost:${config.port}/api/health`);
+});
