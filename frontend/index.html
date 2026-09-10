@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upload Documents — AI Document Comparison Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__mark">
+    <svg class="topbar__glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M15 3v4h4" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M8 12h8M8 15.5h8M8 8.5h4" stroke="currentColor" stroke-width="1.4"/>
+    </svg>
+    <span>Document Comparison Assistant</span>
+  </div>
+  <nav class="topbar__nav">
+    <span class="topbar__step topbar__step--active">1. Upload</span>
+    <span class="topbar__step">2. Review</span>
+    <span class="topbar__step">3. Results</span>
+  </nav>
+</header>
+
+<main class="intake">
+
+  <div class="intake__heading">
+    <h1>Add the documents you want to check</h1>
+    <p>Upload at least two related documents — for example an invoice and its packing list — and we'll check that the important details line up.</p>
+  </div>
+
+  <section class="slots" id="slots" aria-label="Document upload slots">
+    <!-- Slot nodes are rendered here by upload.js -->
+  </section>
+
+  <button type="button" class="add-slot" id="addSlotBtn">
+    <span class="add-slot__plus" aria-hidden="true">+</span> Add another document
+  </button>
+
+  <input type="file" id="fileInput" accept=".pdf,.xlsx,.docx,.jpg,.jpeg,.png" multiple hidden>
+
+  <section class="manifest" aria-label="Uploaded documents">
+    <div class="manifest__head">
+      <span class="manifest__title">Manifest</span>
+      <span class="manifest__count" id="manifestCount">0 documents added</span>
+    </div>
+
+    <div class="manifest__empty" id="manifestEmpty">
+      No documents yet. Files you add will be listed here before comparison.
+    </div>
+
+    <table class="manifest__table" id="manifestTable" hidden>
+      <thead>
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">File</th>
+          <th scope="col">Type</th>
+          <th scope="col">Size</th>
+          <th scope="col">Status</th>
+          <th scope="col"><span class="sr-only">Remove</span></th>
+        </tr>
+      </thead>
+      <tbody id="manifestBody"></tbody>
+    </table>
+  </section>
+
+  <div class="rules" id="rules">
+    <p><strong>Accepted formats:</strong> PDF, Excel (.xlsx), Word (.docx), JPG, PNG — up to <span id="maxSizeLabel">15&nbsp;MB</span> per file.</p>
+  </div>
+
+  <div class="errors" id="errorList" role="alert" aria-live="polite"></div>
+
+  <footer class="intake__footer">
+    <span class="intake__hint" id="footerHint">Add at least 2 documents to continue.</span>
+    <button type="button" class="btn-primary" id="compareBtn" disabled>Compare Documents →</button>
+  </footer>
+
+</main>
+
+<script src="js/upload.js"></script>
+</body>
+</html>
