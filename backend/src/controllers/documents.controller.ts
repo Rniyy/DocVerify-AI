@@ -1,10 +1,11 @@
 import { Request, Response } from "express";
 import path from "path";
 import { AppError } from "../middleware/errorHandler";
+import { extractDocument } from "../services/extraction";
 
 const MIN_DOCUMENTS_REQUIRED = 2;
 
-export function uploadDocuments(req: Request, res: Response): void {
+export async function uploadDocuments(req: Request, res: Response): Promise<void> {
   const files = (req.files as Express.Multer.File[]) ?? [];
 
   if (files.length < MIN_DOCUMENTS_REQUIRED) {
@@ -15,15 +16,42 @@ export function uploadDocuments(req: Request, res: Response): void {
   }
 
   // No database yet (Stage 12 adds the `documents` table) — for now we just
-  // confirm what was stored on disk and hand back metadata the frontend can
-  // display. Nothing here reads the file contents yet; that's Stage 5.
-  const documents = files.map((file) => ({
-    originalName: file.originalname,
-    storedName: file.filename,
-    sizeBytes: file.size,
-    mimeType: file.mimetype,
-    extension: path.extname(file.originalname).slice(1).toLowerCase(),
-  }));
+  // confirm what was stored on disk, extract raw text/rows from the types
+  // we support so far (PDF, Excel), and hand it all back. Stage 6 turns
+  // this raw content into the structured field JSON (invoice number,
+  // quantity, totals, etc.); Word/images arrive via Python in Stage 10.
+  const documents = await Promise.all(
+    files.map(async (file) => {
+      const base = {
+        originalName: file.originalname,
+        storedName: file.filename,
+        sizeBytes: file.size,
+        mimeType: file.mimetype,
+        extension: path.extname(file.originalname).slice(1).toLowerCase(),
+      };
+
+      try {
+        const extracted = await extractDocument(file.path, file.originalname);
+        return {
+          ...base,
+          extracted,
+          extractionError: null,
+          extractionNote:
+            extracted === null
+              ? "Extraction for this file type isn't implemented yet (added in a later stage)."
+              : null,
+        };
+      } catch (err) {
+        return {
+          ...base,
+          extracted: null,
+          extractionError:
+            err instanceof Error ? err.message : "Failed to extract this document's contents.",
+          extractionNote: null,
+        };
+      }
+    })
+  );
 
   res.status(201).json({
     message: `${documents.length} document(s) uploaded successfully.`,
