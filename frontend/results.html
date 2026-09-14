@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comparison Results — AI Document Comparison Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/results.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__mark">
+    <svg class="topbar__glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M15 3v4h4" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M8 12h8M8 15.5h8M8 8.5h4" stroke="currentColor" stroke-width="1.4"/>
+    </svg>
+    <span>Document Comparison Assistant</span>
+  </div>
+  <nav class="topbar__nav">
+    <span class="topbar__step">1. Upload</span>
+    <span class="topbar__step topbar__step--active">2. Results</span>
+  </nav>
+</header>
+
+<main class="results">
+
+  <div class="results__heading">
+    <h1>Comparison Results</h1>
+    <p id="resultsSubtitle" class="results__subtitle"></p>
+  </div>
+
+  <div class="results__empty" id="resultsEmpty" hidden>
+    <p>No comparison data found — it may have expired or this page was opened directly.</p>
+    <a class="results__back-link" href="index.html">&larr; Go back and upload documents</a>
+  </div>
+
+  <div id="resultsContent" hidden>
+
+    <section class="summary-strip" id="summaryStrip" aria-label="Comparison summary"></section>
+
+    <section class="notes" id="extractionNotes"></section>
+
+    <section class="dashboard" id="documentFieldsSection">
+      <h2 class="dashboard__title">Document Fields</h2>
+      <div class="table-scroll">
+        <table class="data-table" id="documentFieldsTable"></table>
+      </div>
+    </section>
+
+    <section class="dashboard" id="lineItemsSection"></section>
+
+    <section class="dashboard" id="calcSection"></section>
+
+    <section class="discrepancies" id="discrepanciesSection">
+      <h2 class="dashboard__title">Discrepancies</h2>
+      <div id="discrepancyList" class="discrepancy-list"></div>
+      <p class="discrepancy-empty" id="discrepancyEmpty" hidden>No discrepancies found — every checked field matched.</p>
+    </section>
+
+    <div class="results__footer">
+      <a class="results__back-link" href="index.html">&larr; Compare different documents</a>
+    </div>
+
+  </div>
+
+</main>
+
+<script src="js/results.js"></script>
+</body>
+</html>

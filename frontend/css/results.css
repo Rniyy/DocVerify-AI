@@ -1,0 +1,200 @@
+/* ---------------------------------------------------------------
+   Results page layout
+----------------------------------------------------------------- */
+.results {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 56px 32px 120px;
+}
+
+.results__heading h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.9rem;
+  margin: 0 0 6px;
+}
+
+.results__subtitle {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  margin: 0 0 36px;
+}
+
+.results__empty {
+  border: 1px dashed var(--paper-line);
+  padding: 40px;
+  text-align: center;
+  color: var(--slate);
+}
+
+.results__back-link {
+  display: inline-block;
+  margin-top: 14px;
+  color: var(--stamp-dark);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.results__back-link:hover { text-decoration: underline; }
+
+.results__footer {
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid var(--paper-line);
+}
+
+/* ---------------------------------------------------------------
+   Summary strip
+----------------------------------------------------------------- */
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-top: 2px solid var(--ink);
+  border-bottom: 1px solid var(--paper-line);
+  margin-bottom: 28px;
+}
+
+@media (max-width: 640px) {
+  .summary-strip { grid-template-columns: repeat(2, 1fr); }
+}
+
+.stat {
+  padding: 16px 14px;
+  border-right: 1px solid var(--paper-line);
+}
+
+.stat:last-child { border-right: none; }
+
+.stat__value {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 500;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.stat__label {
+  font-size: 0.74rem;
+  color: var(--slate);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat--matches .stat__value { color: var(--ok); }
+.stat--warnings .stat__value { color: var(--warn); }
+.stat--errors .stat__value { color: var(--error); }
+
+/* ---------------------------------------------------------------
+   Extraction notes (e.g. unsupported file types)
+----------------------------------------------------------------- */
+.notes:empty { display: none; }
+
+.note-item {
+  border-left: 3px solid var(--paper-line);
+  background: var(--paper-raised);
+  color: var(--ink-soft);
+  padding: 9px 14px;
+  font-size: 0.83rem;
+  margin-bottom: 8px;
+}
+
+/* ---------------------------------------------------------------
+   Dashboard tables
+----------------------------------------------------------------- */
+.dashboard { margin-bottom: 36px; }
+
+.dashboard__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin: 0 0 12px;
+}
+
+.table-scroll { overflow-x: auto; }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.data-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--slate);
+  font-size: 0.75rem;
+  padding: 0 12px 8px;
+  border-bottom: 1px solid var(--ink);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--paper-line);
+  vertical-align: top;
+}
+
+.data-table td.value-cell {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.data-table td.value-cell--empty {
+  color: var(--paper-line);
+}
+
+.result-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.result-badge--match { color: var(--ok); }
+.result-badge--warning { color: var(--warn); }
+.result-badge--mismatch { color: var(--error); }
+
+.diff-note {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--slate);
+  margin-top: 2px;
+}
+
+/* ---------------------------------------------------------------
+   Discrepancy list
+----------------------------------------------------------------- */
+.discrepancies {
+  border-top: 2px solid var(--ink);
+  padding-top: 18px;
+}
+
+.discrepancy-list { display: flex; flex-direction: column; gap: 10px; }
+
+.discrepancy-item {
+  border-left: 3px solid var(--paper-line);
+  background: var(--paper-raised);
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.discrepancy-item--error { border-left-color: var(--error); }
+.discrepancy-item--warning { border-left-color: var(--warn); }
+
+.discrepancy-item__title {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+
+.discrepancy-item__body { color: var(--ink-soft); }
+
+.discrepancy-empty {
+  color: var(--slate);
+  font-size: 0.88rem;
+}
