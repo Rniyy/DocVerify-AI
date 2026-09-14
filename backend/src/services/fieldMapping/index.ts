@@ -15,12 +15,11 @@ const LINE_ITEM_KEYS: (keyof ExtractedFields)[] = [
 export function mapExtractionToFields(extraction: ExtractionResult | null): StructuredDocument | null {
   if (!extraction) return null;
 
-  if (extraction.type === "pdf") {
+  // PDF, Word, and OCR'd images all reduce to "lines of text" — the same
+  // label/value line matcher handles all three.
+  if (extraction.type === "pdf" || extraction.type === "docx" || extraction.type === "image") {
     const documentFields = mapTextToFields(extraction.text);
 
-    // A single-page invoice usually describes one line item inline with
-    // the header fields. Pull the line-item-shaped fields out into their
-    // own entry so PDF and Excel results share the same lineItems shape.
     const lineItem: ExtractedFields = {};
     LINE_ITEM_KEYS.forEach((key) => {
       if (documentFields[key] !== undefined) {

@@ -4,6 +4,16 @@ export interface PdfExtractionResult {
   text: string;
 }
 
+export interface DocxExtractionResult {
+  type: "docx";
+  text: string;
+}
+
+export interface ImageExtractionResult {
+  type: "image";
+  text: string;
+}
+
 export type ExcelCellValue = string | number | boolean | null;
 
 export interface ExcelSheetData {
@@ -16,4 +26,8 @@ export interface ExcelExtractionResult {
   sheets: ExcelSheetData[];
 }
 
-export type ExtractionResult = PdfExtractionResult | ExcelExtractionResult;
+export type ExtractionResult =
+  | PdfExtractionResult
+  | ExcelExtractionResult
+  | DocxExtractionResult
+  | ImageExtractionResult;

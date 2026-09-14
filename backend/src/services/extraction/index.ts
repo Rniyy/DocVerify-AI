@@ -2,12 +2,13 @@ import path from "path";
 import { ExtractionResult } from "../../types/extraction";
 import { extractExcel } from "./excelExtractor";
 import { extractPdf } from "./pdfExtractor";
+import { extractViaPythonService } from "./pythonServiceClient";
 
 /**
- * Returns structured content for supported types, or null for types not
- * yet handled in this stage (Word, images). Word/image extraction moves
- * to the Python service in Stage 10, since OCR and .docx parsing belong
- * there per the architecture split — this stays PDF/Excel only for now.
+ * Returns structured content for every type the project supports.
+ * PDF/Excel are parsed here in TypeScript (fast, no extra service needed);
+ * Word and images are delegated to the Python service (Stage 10), which
+ * owns OCR and .docx parsing per the architecture split.
  */
 export async function extractDocument(
   filePath: string,
@@ -20,6 +21,11 @@ export async function extractDocument(
       return extractPdf(filePath);
     case "xlsx":
       return extractExcel(filePath);
+    case "docx":
+    case "jpg":
+    case "jpeg":
+    case "png":
+      return extractViaPythonService(filePath, originalName);
     default:
       return null;
   }
