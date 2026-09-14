@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import path from "path";
 import { AppError } from "../middleware/errorHandler";
 import { extractDocument } from "../services/extraction";
-import { structureDocument } from "../services/structuring";
+import { mapExtractionToFields } from "../services/fieldMapping";
 
 const MIN_DOCUMENTS_REQUIRED = 2;
 
@@ -16,11 +16,10 @@ export async function uploadDocuments(req: Request, res: Response): Promise<void
     );
   }
 
-  // No database yet (Stage 12 adds the `documents` table) — for now we just
-  // confirm what was stored on disk, extract raw text/rows from the types
-  // we support so far (PDF, Excel), and hand it all back. Stage 6 turns
-  // this raw content into the structured field JSON (invoice number,
-  // quantity, totals, etc.); Word/images arrive via Python in Stage 10.
+  // No database yet (Stage 12 adds the `documents` table). For now: store
+  // the file, extract raw content (Stage 5), then map that raw content onto
+  // the known business fields (Stage 6). Comparison logic (Stage 7+) will
+  // consume `fields` from each document in this array.
   const documents = await Promise.all(
     files.map(async (file) => {
       const base = {
@@ -33,10 +32,11 @@ export async function uploadDocuments(req: Request, res: Response): Promise<void
 
       try {
         const extracted = await extractDocument(file.path, file.originalname);
+        const fields = mapExtractionToFields(extracted);
         return {
           ...base,
           extracted,
-          structured: structureDocument(extracted),
+          fields,
           extractionError: null,
           extractionNote:
             extracted === null
@@ -47,6 +47,7 @@ export async function uploadDocuments(req: Request, res: Response): Promise<void
         return {
           ...base,
           extracted: null,
+          fields: null,
           extractionError:
             err instanceof Error ? err.message : "Failed to extract this document's contents.",
           extractionNote: null,
