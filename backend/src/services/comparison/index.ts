@@ -1,5 +1,6 @@
 import { ComparisonReport, FieldComparisonResult, LineItemComparisonResult } from "../../types/comparison";
 import { ExtractedFields, StructuredDocument } from "../../types/fields";
+import { validateCalculations } from "../calculation/calculationValidator";
 import { compareFieldAcrossDocuments } from "./exactComparator";
 
 // Order controls how fields appear in the dashboard table.
@@ -61,14 +62,15 @@ export function compareDocuments(documents: StructuredDocument[]): ComparisonRep
   }
 
   const allResults = [...documentFieldResults, ...lineItemResults.flatMap((item) => item.fields)];
+  const calculationIssues = validateCalculations(documents);
 
   const summary = {
     documentsReviewed: documents.length,
     fieldsChecked: allResults.length,
     matches: allResults.filter((r) => r.status === "match").length,
-    warnings: 0, // Stage 8 (calculation validation) populates this
+    warnings: calculationIssues.length,
     errors: allResults.filter((r) => r.status === "mismatch").length,
   };
 
-  return { summary, documentFieldResults, lineItemResults };
+  return { summary, documentFieldResults, lineItemResults, calculationIssues };
 }

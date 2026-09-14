@@ -1,3 +1,5 @@
+import { CalculationIssue } from "./calculation";
+
 export type FieldStatus = "match" | "mismatch";
 
 export interface FieldComparisonResult {
@@ -27,4 +29,5 @@ export interface ComparisonReport {
   summary: ComparisonSummary;
   documentFieldResults: FieldComparisonResult[];
   lineItemResults: LineItemComparisonResult[];
+  calculationIssues: CalculationIssue[];
 }
