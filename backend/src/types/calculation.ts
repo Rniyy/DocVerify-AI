@@ -10,4 +10,6 @@ export interface CalculationIssue {
   expected: number;
   actual: number;
   difference: number;
+  /** AI-generated plain-language explanation (Stage 11), when available. */
+  aiExplanation?: string;
 }

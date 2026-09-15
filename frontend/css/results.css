@@ -156,6 +156,7 @@
 .result-badge--match { color: var(--ok); }
 .result-badge--warning { color: var(--warn); }
 .result-badge--mismatch { color: var(--error); }
+.result-badge--semantic-match { color: var(--stamp-dark); }
 
 .diff-note {
   display: block;

@@ -66,7 +66,10 @@ function init() {
         );
       }
 
-      const report = await runComparison(withFields.map((d) => d.fields));
+      const report = await runComparison(
+        withFields.map((d) => d.fields),
+        withFields.map((d) => d.originalName)
+      );
 
       sessionStorage.setItem(
         "comparisonResult",

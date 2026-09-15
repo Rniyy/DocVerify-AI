@@ -21,11 +21,11 @@ async function uploadDocuments(files) {
   return data; // { message, documents: [{ originalName, fields, extractionError, extractionNote, ... }] }
 }
 
-async function runComparison(documentsFields) {
+async function runComparison(documentsFields, documentNames) {
   const response = await fetch(`${API_BASE_URL}/comparisons`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ documents: documentsFields }),
+    body: JSON.stringify({ documents: documentsFields, documentNames }),
   });
 
   const data = await response.json();

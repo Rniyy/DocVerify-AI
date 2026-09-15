@@ -6,7 +6,7 @@
  * this page's structure.
  */
 
-const STATUS_ICON = { match: "✅", mismatch: "❌", warning: "⚠️" };
+const STATUS_ICON = { match: "✅", mismatch: "❌", warning: "⚠️", "semantic-match": "🤖" };
 
 function init() {
   const raw = sessionStorage.getItem("comparisonResult");
@@ -87,12 +87,13 @@ function formatValue(value) {
 }
 
 function renderResultBadge(fieldResult) {
-  const label = fieldResult.status === "match" ? "Match" : "Mismatch";
+  const labels = { match: "Match", mismatch: "Mismatch", "semantic-match": "AI Match" };
   return `
     <span class="result-badge result-badge--${fieldResult.status}">
-      ${STATUS_ICON[fieldResult.status]} ${label}
+      ${STATUS_ICON[fieldResult.status]} ${labels[fieldResult.status]}
     </span>
     ${fieldResult.difference !== undefined ? `<span class="diff-note">Diff: ${escapeHtml(fieldResult.difference)}</span>` : ""}
+    ${fieldResult.status === "semantic-match" && fieldResult.aiExplanation ? `<span class="diff-note">${escapeHtml(fieldResult.aiExplanation)}</span>` : ""}
   `;
 }
 
@@ -168,6 +169,7 @@ function renderCalculationIssues(docNames, issues) {
           <td>
             <span class="result-badge result-badge--warning">${STATUS_ICON.warning} Warning</span>
             <span class="diff-note">Diff: ${issue.difference}</span>
+            ${issue.aiExplanation ? `<span class="diff-note">${escapeHtml(issue.aiExplanation)}</span>` : ""}
           </td>
         </tr>`;
     })
@@ -199,6 +201,14 @@ function renderDiscrepancies(docNames, report) {
     results
       .filter((r) => r.status === "mismatch")
       .forEach((r) => {
+        if (r.aiExplanation) {
+          items.push({
+            severity: "error",
+            title: `${labelForField(r.field)} does not match${contextLabel ? ` (${contextLabel})` : ""}`,
+            body: r.aiExplanation,
+          });
+          return;
+        }
         const parts = r.values.map(
           (v, i) => `${docNames[i]} shows ${v === undefined || v === null || v === "" ? "no value" : formatPlain(v)}`
         );
@@ -225,7 +235,9 @@ function renderDiscrepancies(docNames, report) {
     items.push({
       severity: "warning",
       title: `Calculation doesn't add up in ${docLabel}${scopeLabel}`,
-      body: `${docLabel} states ${issue.rule}, expecting ${issue.expected}, but the document shows ${issue.actual} (difference: ${issue.difference}). Please double-check this document.`,
+      body:
+        issue.aiExplanation ||
+        `${docLabel} states ${issue.rule}, expecting ${issue.expected}, but the document shows ${issue.actual} (difference: ${issue.difference}). Please double-check this document.`,
     });
   });
 

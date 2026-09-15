@@ -13,8 +13,8 @@ function isStructuredDocument(value: unknown): value is StructuredDocument {
   );
 }
 
-export function createComparison(req: Request, res: Response): void {
-  const { documents } = req.body as { documents?: unknown };
+export async function createComparison(req: Request, res: Response): Promise<void> {
+  const { documents, documentNames } = req.body as { documents?: unknown; documentNames?: unknown };
 
   if (!Array.isArray(documents) || documents.length < 2) {
     throw new AppError(
@@ -30,6 +30,11 @@ export function createComparison(req: Request, res: Response): void {
     );
   }
 
-  const report = compareDocuments(documents);
+  const names =
+    Array.isArray(documentNames) && documentNames.every((n) => typeof n === "string")
+      ? (documentNames as string[])
+      : undefined;
+
+  const report = await compareDocuments(documents, names);
   res.status(200).json(report);
 }

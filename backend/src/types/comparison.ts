@@ -1,6 +1,6 @@
 import { CalculationIssue } from "./calculation";
 
-export type FieldStatus = "match" | "mismatch";
+export type FieldStatus = "match" | "mismatch" | "semantic-match";
 
 export interface FieldComparisonResult {
   field: string;
@@ -9,6 +9,12 @@ export interface FieldComparisonResult {
   status: FieldStatus;
   /** Human-readable numeric difference, only set for numeric mismatches. */
   difference?: string;
+  /**
+   * Set when AI semantic comparison upgraded a "mismatch" to
+   * "semantic-match" (Stage 11) — e.g. "Whole Star Anise" vs "Star Anise
+   * Whole". Never set for genuine numeric mismatches.
+   */
+  aiExplanation?: string;
 }
 
 export interface LineItemComparisonResult {
