@@ -3,6 +3,8 @@ import path from "path";
 import { AppError } from "../middleware/errorHandler";
 import { extractDocument } from "../services/extraction";
 import { mapExtractionToFields } from "../services/fieldMapping";
+import { saveDocument, saveDocumentFields } from "../services/persistence/documentsRepository";
+import { StructuredDocument } from "../types/fields";
 
 const MIN_DOCUMENTS_REQUIRED = 2;
 
@@ -16,10 +18,10 @@ export async function uploadDocuments(req: Request, res: Response): Promise<void
     );
   }
 
-  // No database yet (Stage 12 adds the `documents` table). For now: store
-  // the file, extract raw content (Stage 5), then map that raw content onto
-  // the known business fields (Stage 6). Comparison logic (Stage 7+) will
-  // consume `fields` from each document in this array.
+  // Extract (Stage 5/10) + map to fields (Stage 6), then persist metadata
+  // and parsed fields to MySQL (Stage 12). Persistence failures don't fail
+  // the upload — a missing/unreachable database shouldn't block someone
+  // from getting their comparison, it just won't be saved to history.
   const documents = await Promise.all(
     files.map(async (file) => {
       const base = {
@@ -30,29 +32,41 @@ export async function uploadDocuments(req: Request, res: Response): Promise<void
         extension: path.extname(file.originalname).slice(1).toLowerCase(),
       };
 
+      let extracted;
+      let fields: StructuredDocument | null = null;
+      let extractionError: string | null = null;
+
       try {
-        const extracted = await extractDocument(file.path, file.originalname);
-        const fields = mapExtractionToFields(extracted);
-        return {
-          ...base,
-          extracted,
-          fields,
-          extractionError: null,
-          extractionNote:
-            extracted === null
-              ? "Extraction for this file type isn't implemented yet (added in a later stage)."
-              : null,
-        };
+        extracted = await extractDocument(file.path, file.originalname);
+        fields = mapExtractionToFields(extracted);
       } catch (err) {
-        return {
-          ...base,
-          extracted: null,
-          fields: null,
-          extractionError:
-            err instanceof Error ? err.message : "Failed to extract this document's contents.",
-          extractionNote: null,
-        };
+        extracted = null;
+        extractionError = err instanceof Error ? err.message : "Failed to extract this document's contents.";
       }
+
+      let documentId: number | null = null;
+      try {
+        documentId = await saveDocument({
+          ...base,
+          extractionStatus: extractionError ? "error" : extracted === null ? "unsupported" : "ok",
+          extractionError,
+        });
+        if (fields) await saveDocumentFields(documentId, fields);
+      } catch (dbErr) {
+        console.error("Persistence failed for uploaded document (continuing without it):", dbErr);
+      }
+
+      return {
+        ...base,
+        documentId,
+        extracted,
+        fields,
+        extractionError,
+        extractionNote:
+          extracted === null && !extractionError
+            ? "Extraction for this file type isn't implemented yet (added in a later stage)."
+            : null,
+      };
     })
   );
 

@@ -67,8 +67,9 @@ function init() {
       }
 
       const report = await runComparison(
-        withFields.map((d) => d.fields),
-        withFields.map((d) => d.originalName)
+        withFields.every((d) => typeof d.documentId === "number")
+          ? { documentIds: withFields.map((d) => d.documentId) }
+          : { documents: withFields.map((d) => d.fields), documentNames: withFields.map((d) => d.originalName) }
       );
 
       sessionStorage.setItem(
