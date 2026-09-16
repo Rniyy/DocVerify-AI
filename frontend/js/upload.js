@@ -27,6 +27,9 @@ const footerHintEl = document.getElementById("footerHint");
 const maxSizeLabelEl = document.getElementById("maxSizeLabel");
 
 function init() {
+  if (!requireAuth()) return; // redirects to login.html if not signed in
+  renderAccountBar();
+
   maxSizeLabelEl.textContent = `${Math.round(MAX_FILE_SIZE_BYTES / (1024 * 1024))}\u00A0MB`;
   addSlot();
   addSlot();

@@ -9,6 +9,9 @@
 const STATUS_ICON = { match: "✅", mismatch: "❌", warning: "⚠️", "semantic-match": "🤖" };
 
 function init() {
+  if (!requireAuth()) return; // redirects to login.html if not signed in
+  renderAccountBar();
+
   const raw = sessionStorage.getItem("comparisonResult");
   if (!raw) {
     document.getElementById("resultsEmpty").hidden = false;

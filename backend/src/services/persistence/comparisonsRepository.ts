@@ -2,11 +2,11 @@ import { pool } from "../../config/db";
 import { CalculationIssue } from "../../types/calculation";
 import { ComparisonReport, ComparisonSummary, FieldComparisonResult } from "../../types/comparison";
 
-export async function saveComparison(summary: ComparisonSummary): Promise<number> {
+export async function saveComparison(summary: ComparisonSummary, userId: number): Promise<number> {
   const [result] = await pool.execute(
-    `INSERT INTO comparisons (documents_reviewed, fields_checked, matches, warnings, errors)
-     VALUES (?, ?, ?, ?, ?)`,
-    [summary.documentsReviewed, summary.fieldsChecked, summary.matches, summary.warnings, summary.errors]
+    `INSERT INTO comparisons (documents_reviewed, fields_checked, matches, warnings, errors, user_id)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [summary.documentsReviewed, summary.fieldsChecked, summary.matches, summary.warnings, summary.errors, userId]
   );
   return (result as { insertId: number }).insertId;
 }

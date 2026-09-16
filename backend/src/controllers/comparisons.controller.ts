@@ -20,15 +20,18 @@ function isStructuredDocument(value: unknown): value is StructuredDocument {
 }
 
 async function loadFromDocumentIds(
-  documentIds: number[]
+  documentIds: number[],
+  userId: number
 ): Promise<{ documents: StructuredDocument[]; documentNames: string[] }> {
   const loaded = await Promise.all(
     documentIds.map(async (id) => {
-      const structured = await getStructuredDocumentById(id);
+      const structured = await getStructuredDocumentById(id, userId);
       if (!structured) {
+        // Also covers "exists but belongs to someone else" — we don't
+        // distinguish, so ownership can't be probed from the error.
         throw new AppError(`No stored document found with id ${id}.`, 404);
       }
-      const name = (await getDocumentOriginalName(id)) ?? `Document ${id}`;
+      const name = (await getDocumentOriginalName(id, userId)) ?? `Document ${id}`;
       return { structured, name };
     })
   );
@@ -39,6 +42,11 @@ async function loadFromDocumentIds(
 }
 
 export async function createComparison(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw new AppError("Authentication required.", 401);
+  }
+  const userId = req.user.id;
+
   const body = req.body as { documents?: unknown; documentNames?: unknown; documentIds?: unknown };
 
   let documents: StructuredDocument[];
@@ -53,7 +61,7 @@ export async function createComparison(req: Request, res: Response): Promise<voi
     if (documentIds.length < 2) {
       throw new AppError("At least 2 documentIds are required to run a comparison.", 400);
     }
-    const loaded = await loadFromDocumentIds(documentIds);
+    const loaded = await loadFromDocumentIds(documentIds, userId);
     documents = loaded.documents;
     documentNames = loaded.documentNames;
   } else {
@@ -78,10 +86,10 @@ export async function createComparison(req: Request, res: Response): Promise<voi
 
   const report = await compareDocuments(documents, documentNames);
 
-  // Persist the run (Stage 12). This never blocks the response — if the
+  // Persist the run (Stage 12/13). This never blocks the response — if the
   // database is unreachable, the caller still gets their comparison.
   try {
-    const comparisonId = await saveComparison(report.summary);
+    const comparisonId = await saveComparison(report.summary, userId);
     await saveComparisonResults(comparisonId, report);
     if (documentIds) await linkDocumentsToComparison(documentIds, comparisonId);
   } catch (dbErr) {

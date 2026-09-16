@@ -83,6 +83,29 @@ html, body {
   padding-bottom: 3px;
 }
 
+.topbar__account {
+  font-size: 0.82rem;
+  color: var(--slate);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar__account-email {
+  color: var(--ink-soft);
+}
+
+.topbar__logout {
+  background: none;
+  border: none;
+  color: var(--stamp-dark);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.topbar__logout:hover { text-decoration: underline; }
+
 /* ---------------------------------------------------------------
    Intake layout
 ----------------------------------------------------------------- */

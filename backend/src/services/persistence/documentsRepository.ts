@@ -9,13 +9,14 @@ export interface DocumentMetaInput {
   sizeBytes: number;
   extractionStatus: "ok" | "error" | "unsupported";
   extractionError: string | null;
+  userId: number;
 }
 
 export async function saveDocument(meta: DocumentMetaInput): Promise<number> {
   const [result] = await pool.execute(
     `INSERT INTO documents
-       (original_name, stored_name, mime_type, extension, size_bytes, extraction_status, extraction_error)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (original_name, stored_name, mime_type, extension, size_bytes, extraction_status, extraction_error, user_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       meta.originalName,
       meta.storedName,
@@ -24,6 +25,7 @@ export async function saveDocument(meta: DocumentMetaInput): Promise<number> {
       meta.sizeBytes,
       meta.extractionStatus,
       meta.extractionError,
+      meta.userId,
     ]
   );
   return (result as { insertId: number }).insertId;
@@ -55,9 +57,15 @@ export async function saveDocumentFields(documentId: number, structured: Structu
   );
 }
 
-/** Rebuilds a StructuredDocument from its stored field rows. */
-export async function getStructuredDocumentById(documentId: number): Promise<StructuredDocument | null> {
-  const [docRows] = await pool.execute("SELECT id FROM documents WHERE id = ?", [documentId]);
+/** Rebuilds a StructuredDocument from its stored field rows, scoped to its owner. */
+export async function getStructuredDocumentById(
+  documentId: number,
+  userId: number
+): Promise<StructuredDocument | null> {
+  const [docRows] = await pool.execute("SELECT id FROM documents WHERE id = ? AND user_id = ?", [
+    documentId,
+    userId,
+  ]);
   if ((docRows as unknown[]).length === 0) return null;
 
   const [fieldRows] = await pool.execute(
@@ -88,8 +96,11 @@ export async function getStructuredDocumentById(documentId: number): Promise<Str
   return { documentFields, lineItems };
 }
 
-export async function getDocumentOriginalName(documentId: number): Promise<string | null> {
-  const [rows] = await pool.execute("SELECT original_name FROM documents WHERE id = ?", [documentId]);
+export async function getDocumentOriginalName(documentId: number, userId: number): Promise<string | null> {
+  const [rows] = await pool.execute("SELECT original_name FROM documents WHERE id = ? AND user_id = ?", [
+    documentId,
+    userId,
+  ]);
   const row = (rows as { original_name: string }[])[0];
   return row?.original_name ?? null;
 }

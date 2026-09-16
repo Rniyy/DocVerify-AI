@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In — AI Document Comparison Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+
+<main class="auth">
+  <div class="auth__card">
+    <div class="auth__mark">
+      <svg class="topbar__glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M15 3v4h4" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M8 12h8M8 15.5h8M8 8.5h4" stroke="currentColor" stroke-width="1.4"/>
+      </svg>
+      <span>Document Comparison Assistant</span>
+    </div>
+
+    <div class="auth__tabs" role="tablist">
+      <button type="button" class="auth__tab auth__tab--active" id="tabLogin" role="tab">Sign In</button>
+      <button type="button" class="auth__tab" id="tabRegister" role="tab">Create Account</button>
+    </div>
+
+    <form id="authForm" novalidate>
+      <label class="auth__label" for="email">Email</label>
+      <input class="auth__input" type="email" id="email" name="email" autocomplete="username" required>
+
+      <label class="auth__label" for="password">Password</label>
+      <input class="auth__input" type="password" id="password" name="password" autocomplete="current-password" required minlength="8">
+      <p class="auth__hint" id="passwordHint" hidden>At least 8 characters.</p>
+
+      <div class="auth__errors" id="authErrors" role="alert" aria-live="polite"></div>
+
+      <button type="submit" class="btn-primary auth__submit" id="submitBtn">Sign In</button>
+    </form>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>

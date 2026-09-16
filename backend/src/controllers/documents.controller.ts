@@ -9,6 +9,11 @@ import { StructuredDocument } from "../types/fields";
 const MIN_DOCUMENTS_REQUIRED = 2;
 
 export async function uploadDocuments(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw new AppError("Authentication required.", 401);
+  }
+  const userId = req.user.id;
+
   const files = (req.files as Express.Multer.File[]) ?? [];
 
   if (files.length < MIN_DOCUMENTS_REQUIRED) {
@@ -19,9 +24,10 @@ export async function uploadDocuments(req: Request, res: Response): Promise<void
   }
 
   // Extract (Stage 5/10) + map to fields (Stage 6), then persist metadata
-  // and parsed fields to MySQL (Stage 12). Persistence failures don't fail
-  // the upload — a missing/unreachable database shouldn't block someone
-  // from getting their comparison, it just won't be saved to history.
+  // and parsed fields to MySQL (Stage 12), scoped to the logged-in user
+  // (Stage 13). Persistence failures don't fail the upload — a missing or
+  // unreachable database shouldn't block someone from getting their
+  // comparison, it just won't be saved to history.
   const documents = await Promise.all(
     files.map(async (file) => {
       const base = {
@@ -50,6 +56,7 @@ export async function uploadDocuments(req: Request, res: Response): Promise<void
           ...base,
           extractionStatus: extractionError ? "error" : extracted === null ? "unsupported" : "ok",
           extractionError,
+          userId,
         });
         if (fields) await saveDocumentFields(documentId, fields);
       } catch (dbErr) {
