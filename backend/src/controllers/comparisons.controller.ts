@@ -6,7 +6,12 @@ import {
   getStructuredDocumentById,
   linkDocumentsToComparison,
 } from "../services/persistence/documentsRepository";
-import { saveComparison, saveComparisonResults } from "../services/persistence/comparisonsRepository";
+import {
+  getComparisonDetail,
+  listComparisonsForUser,
+  saveComparison,
+  saveComparisonResults,
+} from "../services/persistence/comparisonsRepository";
 import { StructuredDocument } from "../types/fields";
 
 function isStructuredDocument(value: unknown): value is StructuredDocument {
@@ -97,4 +102,30 @@ export async function createComparison(req: Request, res: Response): Promise<voi
   }
 
   res.status(200).json(report);
+}
+
+export async function listComparisons(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw new AppError("Authentication required.", 401);
+  }
+  const items = await listComparisonsForUser(req.user.id);
+  res.status(200).json({ comparisons: items });
+}
+
+export async function getComparison(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw new AppError("Authentication required.", 401);
+  }
+
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    throw new AppError("Invalid comparison id.", 400);
+  }
+
+  const detail = await getComparisonDetail(id, req.user.id);
+  if (!detail) {
+    throw new AppError(`No comparison found with id ${id}.`, 404);
+  }
+
+  res.status(200).json(detail);
 }

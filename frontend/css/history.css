@@ -1,0 +1,32 @@
+.history__loading {
+  color: var(--slate);
+  font-size: 0.9rem;
+  padding: 20px 0;
+}
+
+.history__empty {
+  border: 1px dashed var(--paper-line);
+  padding: 40px;
+  text-align: center;
+  color: var(--slate);
+}
+
+.history__table { margin-top: 8px; }
+
+.history__view-link {
+  color: var(--stamp-dark);
+  font-size: 0.85rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.history__view-link:hover { text-decoration: underline; }
+
+.history__doc-names {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.topbar__nav a.topbar__step {
+  text-decoration: none;
+}

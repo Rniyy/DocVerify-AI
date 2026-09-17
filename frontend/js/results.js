@@ -8,9 +8,17 @@
 
 const STATUS_ICON = { match: "✅", mismatch: "❌", warning: "⚠️", "semantic-match": "🤖" };
 
-function init() {
+async function init() {
   if (!requireAuth()) return; // redirects to login.html if not signed in
   renderAccountBar();
+
+  const params = new URLSearchParams(window.location.search);
+  const comparisonId = params.get("id");
+
+  if (comparisonId) {
+    await loadFromHistory(comparisonId);
+    return;
+  }
 
   const raw = sessionStorage.getItem("comparisonResult");
   if (!raw) {
@@ -27,6 +35,36 @@ function init() {
   }
 
   const { comparedDocuments, skippedDocuments, report } = payload;
+  renderAll(comparedDocuments, skippedDocuments, report);
+}
+
+/** Loads a past comparison by id (Stage 14 — linked from history.html). */
+async function loadFromHistory(comparisonId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/comparisons/${comparisonId}`, {
+      headers: { ...authHeader() },
+    });
+
+    if (response.status === 401) {
+      clearAuth();
+      window.location.href = "login.html";
+      return;
+    }
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || "Could not load this comparison.");
+    }
+
+    renderAll(data.documentNames, [], data.report);
+  } catch (err) {
+    const emptyEl = document.getElementById("resultsEmpty");
+    emptyEl.hidden = false;
+    emptyEl.querySelector("p").textContent = err.message || "Could not load this comparison.";
+  }
+}
+
+function renderAll(comparedDocuments, skippedDocuments, report) {
   document.getElementById("resultsContent").hidden = false;
 
   renderSubtitle(comparedDocuments);

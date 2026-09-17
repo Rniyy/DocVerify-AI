@@ -76,6 +76,10 @@ html, body {
   color: var(--slate);
 }
 
+.topbar__step {
+  text-decoration: none;
+}
+
 .topbar__step--active {
   color: var(--ink);
   font-weight: 600;

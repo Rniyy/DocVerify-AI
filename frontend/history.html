@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comparison History — AI Document Comparison Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/results.css">
+<link rel="stylesheet" href="css/history.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__mark">
+    <svg class="topbar__glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M15 3v4h4" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M8 12h8M8 15.5h8M8 8.5h4" stroke="currentColor" stroke-width="1.4"/>
+    </svg>
+    <span>Document Comparison Assistant</span>
+  </div>
+  <nav class="topbar__nav">
+    <a class="topbar__step" href="index.html">Upload</a>
+    <a class="topbar__step topbar__step--active" href="history.html">History</a>
+  </nav>
+  <div class="topbar__account" id="topbarAccount"></div>
+</header>
+
+<main class="results">
+  <div class="results__heading">
+    <h1>Comparison History</h1>
+    <p class="results__subtitle">Past comparisons you've run, newest first.</p>
+  </div>
+
+  <div class="history__empty" id="historyEmpty" hidden>
+    <p>No comparisons yet.</p>
+    <a class="results__back-link" href="index.html">&larr; Upload documents to compare</a>
+  </div>
+
+  <div class="history__loading" id="historyLoading">Loading…</div>
+
+  <table class="data-table history__table" id="historyTable" hidden>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Documents</th>
+        <th>Fields Checked</th>
+        <th>Matches</th>
+        <th>Warnings</th>
+        <th>Errors</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="historyBody"></tbody>
+  </table>
+</main>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/history.js"></script>
+</body>
+</html>
