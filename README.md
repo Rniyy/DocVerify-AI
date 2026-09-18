@@ -33,41 +33,58 @@ rules and by AI-assisted semantic matching.
 
 ```
 ai-document-comparison-assistant/
-├── frontend/            # Static HTML/CSS/JS client (Stage 2+)
-├── backend/             # Node.js + Express + TypeScript API (Stage 3+)
-│   └── src/
-│       ├── routes/
-│       ├── controllers/
-│       ├── middleware/
-│       ├── config/
-│       ├── types/
-│       └── utils/
-├── python-service/      # Python FastAPI/Flask service for OCR + AI (Stage 10+)
-│   └── app/
-├── database/            # SQL schema & migrations (Stage 12+)
+├── frontend/            # Static HTML/CSS/JS client
+│   └── Dockerfile
+├── backend/             # Node.js + Express + TypeScript API
+│   ├── src/
+│   │   ├── routes/
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── config/
+│   │   ├── types/
+│   │   └── utils/
+│   └── Dockerfile
+├── python-service/      # Python FastAPI service for OCR + AI
+│   ├── app/
+│   └── Dockerfile
+├── database/            # SQL schema & migrations
 ├── docs/                # Architecture & design notes
-└── docker-compose.yml   # Added in Stage 15
+├── docker-compose.yml   # Runs the whole stack together (Stage 15)
+└── .env.example         # docker-compose variables
 ```
 
-## Build stages
+## Running with Docker (Stage 15)
 
-This project is being built incrementally. Current stage: **Stage 1 — Project structure**.
+The whole stack — MySQL, the Python service, the Node backend, and the
+static frontend — runs with one command, no local MySQL/Tesseract/Node
+install required.
 
-1. Project structure (this stage)
-2. Frontend upload page
-3. Node.js/Express backend skeleton
-4. File upload handling
-5. Extract text/data from PDF and Excel
-6. Convert extracted data to structured JSON
-7. Exact field comparison
-8. Calculation validation
-9. Comparison results UI
-10. Python document-processing service
-11. AI semantic comparison
-12. MySQL integration
-13. Authentication
-14. Comparison history
-15. Docker
-16. Test with realistic business documents
+```bash
+cp .env.example .env
+# edit .env: at minimum set ANTHROPIC_API_KEY if you want AI semantic
+# comparison/explanations (Stage 11); everything else works without it.
+
+docker compose up --build
+```
+
+Then open:
+- **http://localhost:8080** — the app itself
+- **http://localhost:4000/api/health** — backend health check
+- **http://localhost:8000/health** — Python service health check
+- MySQL is reachable on **localhost:3306** if you want to inspect it with a client
+
+The database schema (`database/schema.sql`) loads automatically the first
+time the `mysql` container starts (an empty data volume). Uploaded files
+persist in `./backend/uploads` on your host via a bind mount, and MySQL
+data persists in a named Docker volume (`mysql-data`), so `docker compose
+down` (without `-v`) keeps everything intact for next time.
+
+To stop everything: `docker compose down` (add `-v` to also wipe the
+database volume and start completely fresh).
+
+**Note:** this replaces running each service manually (`npm run dev`,
+`uvicorn ...`, a local MySQL server) from Stages 1–14 — it's an
+alternative way to run the same app, not a different app. Local
+development without Docker still works exactly as before if you prefer it.
 
 See `docs/ARCHITECTURE.md` for more detail on why the system is split this way.

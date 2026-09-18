@@ -1,0 +1,71 @@
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: doccompare
+      MYSQL_USER: doccompare
+      MYSQL_PASSWORD: ${DB_PASSWORD:-changeme}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # Only runs automatically the first time the data volume is empty —
+      # matches Stage 12's schema.sql exactly, nothing docker-specific in it.
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  python-service:
+    build: ./python-service
+    restart: unless-stopped
+    environment:
+      PORT: 8000
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: doccompare
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+      DB_NAME: doccompare
+      JWT_SECRET: ${JWT_SECRET:-change_this_in_production}
+      PYTHON_SERVICE_URL: http://python-service:8000
+      MAX_UPLOAD_SIZE_MB: 15
+    ports:
+      - "4000:4000"
+    volumes:
+      # Uploaded files survive `docker compose down` / rebuilds.
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      python-service:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql-data:
