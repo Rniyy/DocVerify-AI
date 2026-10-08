@@ -1,5 +1,10 @@
 import { Router } from "express";
-import { createComparison, getComparison, listComparisons } from "../controllers/comparisons.controller";
+import {
+  createComparison,
+  exportComparisonCsv,
+  getComparison,
+  listComparisons,
+} from "../controllers/comparisons.controller";
 import { asyncHandler } from "../utils/asyncHandler";
 
 export const comparisonsRouter = Router();
@@ -12,3 +17,6 @@ comparisonsRouter.post("/", asyncHandler(createComparison));
 // Stage 14: comparison history
 comparisonsRouter.get("/", asyncHandler(listComparisons));
 comparisonsRouter.get("/:id", asyncHandler(getComparison));
+
+// Stage 17: download a saved comparison as CSV (opens in Excel / Google Sheets).
+comparisonsRouter.get("/:id/export", asyncHandler(exportComparisonCsv));

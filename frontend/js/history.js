@@ -2,6 +2,20 @@ function init() {
   if (!requireAuth()) return;
   renderAccountBar();
   loadHistory();
+
+  // Stage 17: one delegated handler for every row's Export CSV button.
+  document.getElementById("historyBody").addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-export-id]");
+    if (!button) return;
+    button.disabled = true;
+    try {
+      await downloadComparisonCsv(button.dataset.exportId);
+    } catch (err) {
+      alert(err.message || "Could not export this comparison.");
+    } finally {
+      button.disabled = false;
+    }
+  });
 }
 
 async function loadHistory() {
@@ -55,6 +69,7 @@ function renderRow(item) {
       <td class="value-cell">${item.warnings}</td>
       <td class="value-cell">${item.errors}</td>
       <td><a class="history__view-link" href="results.html?id=${item.id}">View details &rarr;</a></td>
+      <td><button type="button" class="history__export-btn" data-export-id="${item.id}">Export CSV</button></td>
     </tr>`;
 }
 

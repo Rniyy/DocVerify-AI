@@ -4,9 +4,10 @@ from anthropic import Anthropic
 
 _client: Anthropic | None = None
 
-# claude-sonnet-5 gives a good balance of judgment quality and cost for
-# short classification/explanation calls like these.
-MODEL = "claude-sonnet-5"
+# Good balance of judgment quality and cost for short classification /
+# extraction calls like these. Override with ANTHROPIC_MODEL (e.g. to move to
+# a newer model) without touching code.
+MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
 
 
 def get_client() -> Anthropic:

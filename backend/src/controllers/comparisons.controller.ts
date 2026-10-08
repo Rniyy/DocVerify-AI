@@ -12,6 +12,7 @@ import {
   saveComparison,
   saveComparisonResults,
 } from "../services/persistence/comparisonsRepository";
+import { reportToCsv } from "../services/export/csvExporter";
 import { StructuredDocument } from "../types/fields";
 
 function isStructuredDocument(value: unknown): value is StructuredDocument {
@@ -93,15 +94,18 @@ export async function createComparison(req: Request, res: Response): Promise<voi
 
   // Persist the run (Stage 12/13). This never blocks the response — if the
   // database is unreachable, the caller still gets their comparison.
+  let comparisonId: number | null = null;
   try {
-    const comparisonId = await saveComparison(report.summary, userId);
+    comparisonId = await saveComparison(report.summary, userId);
     await saveComparisonResults(comparisonId, report);
     if (documentIds) await linkDocumentsToComparison(documentIds, comparisonId);
   } catch (dbErr) {
     console.error("Persistence failed for comparison (continuing without it):", dbErr);
   }
 
-  res.status(200).json(report);
+  // Stage 17: comparisonId lets the UI offer "Export CSV" straight after a run.
+  // It's null when the run couldn't be saved (database unavailable).
+  res.status(200).json({ ...report, comparisonId });
 }
 
 export async function listComparisons(req: Request, res: Response): Promise<void> {
@@ -128,4 +132,24 @@ export async function getComparison(req: Request, res: Response): Promise<void> 
   }
 
   res.status(200).json(detail);
+}
+
+export async function exportComparisonCsv(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw new AppError("Authentication required.", 401);
+  }
+
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    throw new AppError("Invalid comparison id.", 400);
+  }
+
+  const detail = await getComparisonDetail(id, req.user.id);
+  if (!detail) {
+    throw new AppError(`No comparison found with id ${id}.`, 404);
+  }
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="comparison-${id}.csv"`);
+  res.status(200).send(reportToCsv(detail.report, detail.documentNames));
 }

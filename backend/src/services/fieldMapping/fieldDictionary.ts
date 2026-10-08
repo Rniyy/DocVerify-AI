@@ -28,10 +28,29 @@ export const FIELD_ALIASES: Record<keyof ExtractedFields, string[]> = {
   date: ["invoice date", "date", "issue date"],
 };
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Built once: longer/more specific aliases first so e.g. "invoice date"
+// wins over the generic "date".
+const ALIAS_MATCHERS = (Object.entries(FIELD_ALIASES) as [keyof ExtractedFields, string[]][])
+  .flatMap(([key, aliases]) =>
+    aliases.map((alias) => ({
+      key,
+      alias,
+      // Whole-word match: "VATIN" must not count as "vat", "Last update"
+      // must not count as "date". (Stage 16 fix — this used to be a plain
+      // substring test.)
+      pattern: new RegExp(`(?<![a-z0-9])${escapeRegExp(alias)}(?![a-z0-9])`),
+    }))
+  )
+  .sort((a, b) => b.alias.length - a.alias.length);
+
 /**
  * Finds which known field a raw label (e.g. a PDF line's left-hand side, or
- * an Excel header cell) refers to. Longer/more specific aliases are checked
- * first so e.g. "invoice date" doesn't fall through to the generic "date".
+ * an Excel header cell) refers to. The alias must appear as a whole word or
+ * phrase in the label.
  */
 export function findFieldKeyForLabel(rawLabel: string): keyof ExtractedFields | null {
   const normalized = rawLabel
@@ -39,13 +58,8 @@ export function findFieldKeyForLabel(rawLabel: string): keyof ExtractedFields | 
     .replace(/[:*]/g, "")
     .trim();
 
-  const entries = Object.entries(FIELD_ALIASES) as [keyof ExtractedFields, string[]][];
-  const sorted = entries
-    .flatMap(([key, aliases]) => aliases.map((alias) => ({ key, alias })))
-    .sort((a, b) => b.alias.length - a.alias.length);
-
-  for (const { key, alias } of sorted) {
-    if (normalized === alias || normalized.endsWith(alias) || normalized.includes(alias)) {
+  for (const { key, alias, pattern } of ALIAS_MATCHERS) {
+    if (normalized === alias || pattern.test(normalized)) {
       return key;
     }
   }

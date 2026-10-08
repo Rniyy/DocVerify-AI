@@ -4,6 +4,7 @@ import { ExtractedFields, StructuredDocument } from "../../types/fields";
 import { explainDiscrepancy, semanticCompare } from "../ai/pythonAiClient";
 import { validateCalculations } from "../calculation/calculationValidator";
 import { compareFieldAcrossDocuments } from "./exactComparator";
+import { alignLineItems } from "./lineItemAlignment";
 
 // Order controls how fields appear in the dashboard table.
 const DOCUMENT_LEVEL_FIELD_ORDER: (keyof ExtractedFields)[] = [
@@ -15,6 +16,7 @@ const DOCUMENT_LEVEL_FIELD_ORDER: (keyof ExtractedFields)[] = [
   "currency",
   "subtotal",
   "tax",
+  "totalAmount", // grand total — compared across documents since Stage 16
   "grossWeight",
   "netWeight",
   "containerNumber",
@@ -37,11 +39,11 @@ const SEMANTIC_ELIGIBLE_FIELDS = new Set<string>(["description", "supplier", "cu
 function compareFieldSet(
   documents: StructuredDocument[],
   fieldOrder: (keyof ExtractedFields)[],
-  getFields: (doc: StructuredDocument) => ExtractedFields
+  getFields: (doc: StructuredDocument, docIndex: number) => ExtractedFields
 ): FieldComparisonResult[] {
   return fieldOrder
     .map((field) => {
-      const values = documents.map((doc) => getFields(doc)[field]);
+      const values = documents.map((doc, docIndex) => getFields(doc, docIndex)[field]);
       if (values.every((v) => v === undefined)) return null; // nobody has this field — nothing to compare
       return compareFieldAcrossDocuments(field, values);
     })
@@ -122,10 +124,18 @@ export async function compareDocuments(
     (doc) => doc.documentFields
   );
 
-  const maxLineItems = Math.max(0, ...documents.map((doc) => doc.lineItems.length));
+  // Stage 16: line up products across documents first, so a packing list
+  // that orders items differently from the invoice doesn't produce false
+  // mismatches on every row.
+  const alignedItems = alignLineItems(documents);
+  const rowCount = alignedItems[0]?.length ?? 0;
   let lineItemResults: LineItemComparisonResult[] = [];
-  for (let i = 0; i < maxLineItems; i++) {
-    const fields = compareFieldSet(documents, LINE_ITEM_FIELD_ORDER, (doc) => doc.lineItems[i] ?? {});
+  for (let i = 0; i < rowCount; i++) {
+    const fields = compareFieldSet(
+      documents,
+      LINE_ITEM_FIELD_ORDER,
+      (_doc, docIndex) => alignedItems[docIndex][i] ?? {}
+    );
     lineItemResults.push({ index: i, fields });
   }
 

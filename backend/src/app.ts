@@ -1,6 +1,7 @@
 import cors from "cors";
 import express, { Express } from "express";
 import helmet from "helmet";
+import { config } from "./config/env";
 import { errorHandler } from "./middleware/errorHandler";
 import { notFoundHandler } from "./middleware/notFound";
 import { apiRouter } from "./routes";
@@ -9,7 +10,9 @@ export function createApp(): Express {
   const app = express();
 
   app.use(helmet());
-  app.use(cors()); // tightened to specific origins once the frontend has a real domain (Stage 15)
+  // Stage 18: set CORS_ORIGIN to restrict which sites may call the API;
+  // left unset it allows any origin, as before.
+  app.use(cors(config.corsOrigins.length > 0 ? { origin: config.corsOrigins } : undefined));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 

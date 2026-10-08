@@ -26,6 +26,7 @@ services:
     environment:
       PORT: 8000
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-5}
     ports:
       - "8000:8000"
     healthcheck:
@@ -48,6 +49,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change_this_in_production}
       PYTHON_SERVICE_URL: http://python-service:8000
       MAX_UPLOAD_SIZE_MB: 15
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
     ports:
       - "4000:4000"
     volumes:

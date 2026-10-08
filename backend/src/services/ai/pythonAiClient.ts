@@ -54,3 +54,24 @@ export async function explainDiscrepancy(context: ExplainContext): Promise<strin
     return null;
   }
 }
+
+/**
+ * Asks the Python service to read structured fields out of raw document text
+ * (Stage 20). The result is an untrusted *candidate*: callers must verify it
+ * against the source text (see fieldMapping/aiFallback.ts). Same fail-soft
+ * contract as the other AI calls — null means "no AI result available".
+ */
+export async function extractFieldsWithAi(text: string): Promise<unknown | null> {
+  try {
+    const response = await fetch(`${config.pythonServiceUrl}/ai/extract-fields`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+}

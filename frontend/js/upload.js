@@ -65,7 +65,7 @@ function init() {
       if (withFields.length < MIN_DOCUMENTS_REQUIRED) {
         throw new Error(
           "At least 2 documents need readable content to compare. " +
-          "Word documents and images aren't supported yet (coming in a later stage)."
+          "Check that your files aren't empty or scanned images without selectable text."
         );
       }
 
@@ -85,6 +85,12 @@ function init() {
             originalName: d.originalName,
             reason: d.extractionNote || d.extractionError,
           })),
+          // Stage 17/20: lets the results page offer "Export CSV" and show
+          // cautions about thinly-read or AI-assisted documents.
+          comparisonId: report.comparisonId ?? null,
+          warnings: withFields
+            .filter((d) => d.extractionWarning)
+            .map((d) => ({ originalName: d.originalName, message: d.extractionWarning })),
           report,
         })
       );

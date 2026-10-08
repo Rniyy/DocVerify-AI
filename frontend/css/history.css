@@ -30,3 +30,18 @@
 .topbar__nav a.topbar__step {
   text-decoration: none;
 }
+
+.history__export-btn {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--stamp-dark);
+  background: transparent;
+  border: 1px solid var(--paper-line);
+  padding: 4px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.history__export-btn:hover:not(:disabled) { border-color: var(--stamp-dark); }
+.history__export-btn:disabled { opacity: 0.5; cursor: default; }

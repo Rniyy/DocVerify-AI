@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.ai.explainer import explain_discrepancy
+from app.ai.field_extractor import extract_fields
 from app.ai.semantic_matcher import compare_descriptions_semantically
 
 router = APIRouter()
@@ -12,6 +13,10 @@ router = APIRouter()
 class SemanticCompareRequest(BaseModel):
     field: str
     values: list[str]
+
+
+class ExtractFieldsRequest(BaseModel):
+    text: str
 
 
 class ExplainRequest(BaseModel):
@@ -44,3 +49,14 @@ def explain(payload: ExplainRequest):
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"AI explanation failed: {exc}") from exc
+
+
+@router.post("/extract-fields")
+def extract_fields_endpoint(payload: ExtractFieldsRequest):
+    """Candidate structured fields for documents the rule-based mapper can't read."""
+    try:
+        return extract_fields(payload.text)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"AI field extraction failed: {exc}") from exc

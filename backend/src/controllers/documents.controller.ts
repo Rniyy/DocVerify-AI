@@ -3,6 +3,7 @@ import path from "path";
 import { AppError } from "../middleware/errorHandler";
 import { extractDocument } from "../services/extraction";
 import { mapExtractionToFields } from "../services/fieldMapping";
+import { enrichWithAi, extractionWarning, ExtractionMethod } from "../services/fieldMapping/aiFallback";
 import { saveDocument, saveDocumentFields } from "../services/persistence/documentsRepository";
 import { StructuredDocument } from "../types/fields";
 
@@ -41,10 +42,15 @@ export async function uploadDocuments(req: Request, res: Response): Promise<void
       let extracted;
       let fields: StructuredDocument | null = null;
       let extractionError: string | null = null;
+      let extractionMethod: ExtractionMethod = "rules";
 
       try {
         extracted = await extractDocument(file.path, file.originalname);
-        fields = mapExtractionToFields(extracted);
+        // Stage 20: rules first; AI tops up only when the rules came back
+        // sparse, and only with values verified against the document text.
+        const enriched = await enrichWithAi(extracted, mapExtractionToFields(extracted));
+        fields = enriched.document;
+        extractionMethod = enriched.method;
       } catch (err) {
         extracted = null;
         extractionError = err instanceof Error ? err.message : "Failed to extract this document's contents.";
@@ -68,6 +74,8 @@ export async function uploadDocuments(req: Request, res: Response): Promise<void
         documentId,
         extracted,
         fields,
+        extractionMethod,
+        extractionWarning: extractionWarning(fields, extractionMethod),
         extractionError,
         extractionNote:
           extracted === null && !extractionError

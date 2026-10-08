@@ -42,3 +42,36 @@ Any AI API key (e.g. `ANTHROPIC_API_KEY`) lives only in the Python
 service's environment (`python-service/.env`, not committed to git). The
 Node.js backend never sees or forwards it, and the frontend never touches
 it — the frontend only ever talks to the Node.js backend.
+
+## Stage 20 — AI-assisted extraction (and why it doesn't break the "no AI in the numbers" rule)
+
+Rule-based extraction (`fieldMapping/`) reads `Label: value` text and Excel
+headers. Real PDFs — especially bilingual layouts — often scramble the text
+layer so that labels and values are lines apart, and the rules find almost
+nothing. For those documents only, the backend asks the Python service
+(`POST /ai/extract-fields`) for a *candidate* structured document, then:
+
+1. **Rules win.** `mergeStructured` only uses AI values for fields the rules
+   left empty.
+2. **Everything is verified.** `groundCandidate` keeps a value only if it
+   literally appears in the document's text (numbers are checked against the
+   numbers actually printed there). Calculated, reformatted or invented values
+   are dropped before they can reach a comparison.
+3. **It's visible.** The upload response carries `extractionMethod`
+   (`rules` | `rules+ai`) and an `extractionWarning`; the results page shows
+   a caution so a reviewer double-checks AI-assisted documents.
+4. **It's optional.** No API key, no Python service, or an unusable reply all
+   fall back to the rule-based result.
+
+Comparison, calculation checks and line-item alignment remain plain,
+unit-tested TypeScript.
+
+## Line-item alignment (Stage 16)
+
+Line items are matched across documents by content (description word overlap
+plus HS code) before comparison, so row N is the same product everywhere even
+when documents list products in different orders. Unmatched items fall back
+to positional pairing (the original behaviour); items with no counterpart get
+their own row and show as missing in the other documents. Because rows are
+aligned, "Line item N" in the comparison table is the aligned row, which can
+differ from a document's own row number.

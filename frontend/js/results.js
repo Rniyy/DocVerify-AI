@@ -34,8 +34,9 @@ async function init() {
     return;
   }
 
-  const { comparedDocuments, skippedDocuments, report } = payload;
-  renderAll(comparedDocuments, skippedDocuments, report);
+  const { comparedDocuments, skippedDocuments, report, warnings, comparisonId: savedId } = payload;
+  renderAll(comparedDocuments, skippedDocuments, report, warnings);
+  setupExport(savedId);
 }
 
 /** Loads a past comparison by id (Stage 14 — linked from history.html). */
@@ -56,7 +57,8 @@ async function loadFromHistory(comparisonId) {
       throw new Error(data.message || "Could not load this comparison.");
     }
 
-    renderAll(data.documentNames, [], data.report);
+    renderAll(data.documentNames, [], data.report, []);
+    setupExport(data.id);
   } catch (err) {
     const emptyEl = document.getElementById("resultsEmpty");
     emptyEl.hidden = false;
@@ -64,12 +66,31 @@ async function loadFromHistory(comparisonId) {
   }
 }
 
-function renderAll(comparedDocuments, skippedDocuments, report) {
+/** Shows the Export CSV button once we know which saved comparison this is (Stage 17). */
+function setupExport(comparisonId) {
+  const button = document.getElementById("exportCsvBtn");
+  if (!comparisonId) return; // run wasn't saved (e.g. database unavailable) — nothing to export
+  button.hidden = false;
+  button.addEventListener("click", async () => {
+    const errorEl = document.getElementById("exportError");
+    errorEl.textContent = "";
+    button.disabled = true;
+    try {
+      await downloadComparisonCsv(comparisonId);
+    } catch (err) {
+      errorEl.textContent = err.message || "Could not export this comparison.";
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
+function renderAll(comparedDocuments, skippedDocuments, report, warnings) {
   document.getElementById("resultsContent").hidden = false;
 
   renderSubtitle(comparedDocuments);
   renderSummary(report.summary);
-  renderNotes(skippedDocuments);
+  renderNotes(skippedDocuments, warnings);
   renderFieldTable(
     "documentFieldsTable",
     "Document Fields",
@@ -106,18 +127,18 @@ function renderSummary(summary) {
     .join("");
 }
 
-function renderNotes(skippedDocuments) {
+function renderNotes(skippedDocuments, warnings) {
   const container = document.getElementById("extractionNotes");
-  if (!skippedDocuments || skippedDocuments.length === 0) {
-    container.innerHTML = "";
-    return;
-  }
-  container.innerHTML = skippedDocuments
-    .map(
-      (d) =>
-        `<div class="note-item">"${escapeHtml(d.originalName)}" wasn't included in this comparison — ${escapeHtml(d.reason || "its contents couldn't be read.")}</div>`
-    )
-    .join("");
+  const skipped = (skippedDocuments || []).map(
+    (d) =>
+      `<div class="note-item">"${escapeHtml(d.originalName)}" wasn't included in this comparison — ${escapeHtml(d.reason || "its contents couldn't be read.")}</div>`
+  );
+  // Stage 20: cautions about documents that were thinly read or AI-assisted.
+  const cautions = (warnings || []).map(
+    (w) =>
+      `<div class="note-item note-item--caution"><strong>${escapeHtml(w.originalName)}:</strong> ${escapeHtml(w.message)}</div>`
+  );
+  container.innerHTML = [...skipped, ...cautions].join("");
 }
 
 function formatValue(value) {
@@ -287,6 +308,11 @@ function renderDiscrepancies(docNames, report) {
 
   if (items.length === 0) {
     container.innerHTML = "";
+    // "Every checked field matched" is only reassuring if something was checked.
+    emptyEl.textContent =
+      report.summary.fieldsChecked === 0
+        ? "No comparable fields could be read from these documents, so nothing was checked. Please review them manually."
+        : "No discrepancies found — every checked field matched.";
     emptyEl.hidden = false;
     return;
   }

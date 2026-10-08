@@ -13,7 +13,9 @@ import { structureExcelSheet } from "./excelFields";
 export function structureDocument(extracted: ExtractionResult | null): StructuredDocument | null {
   if (!extracted) return null;
 
-  if (extracted.type === "pdf") {
+  // PDF, Word and OCR'd images all reduce to plain text (Stage 10 added the
+  // latter two to ExtractionResult — this branch must cover them for tsc).
+  if (extracted.type === "pdf" || extracted.type === "docx" || extracted.type === "image") {
     const { fields, amounts } = extractTextFields(extracted.text);
     return { fields, tables: [], amounts: amounts.length > 0 ? amounts : undefined };
   }

@@ -65,7 +65,9 @@
     </section>
 
     <div class="results__footer">
-      <a class="results__back-link" href="index.html">&larr; Compare different documents</a>
+      <button type="button" class="btn-secondary" id="exportCsvBtn" hidden>Export CSV</button>
+      <span class="results__export-error" id="exportError" role="alert"></span>
+      <div><a class="results__back-link" href="index.html">&larr; Compare different documents</a></div>
     </div>
 
   </div>
@@ -73,6 +75,7 @@
 </main>
 
 <script src="js/auth.js"></script>
+<script src="js/api.js"></script>
 <script src="js/results.js"></script>
 </body>
 </html>

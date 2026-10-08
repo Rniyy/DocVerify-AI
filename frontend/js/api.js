@@ -46,3 +46,27 @@ async function runComparison(payload) {
   }
   return data; // ComparisonReport
 }
+
+/** Downloads a saved comparison as a CSV file (Stage 17). */
+async function downloadComparisonCsv(comparisonId) {
+  const response = await fetch(`${API_BASE_URL}/comparisons/${comparisonId}/export`, {
+    headers: { ...authHeader() },
+  });
+
+  if (response.status === 401) return handleUnauthorized();
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || "Could not export this comparison.");
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `comparison-${comparisonId}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
