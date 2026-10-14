@@ -1,12 +1,11 @@
 # Roadmap
 
-Ideas for after Stage 21, roughly in order of value.
+Ideas for after Stage 23, roughly in order of value.
 
-1. **Header fields on bilingual invoices.** Invoice number, date, supplier and
-   customer are often printed under Khmer-only labels, so the English-label
-   dictionary misses them. Options: add Khmer label aliases to
-   `fieldDictionary.ts`, or rely on the Stage 20 AI fallback (needs
-   `ANTHROPIC_API_KEY`).
+1. **Quieter "missing row" results.** When one document has 18 rows and the
+   other 1, every missing row yields a separate mismatch per field (80 fields,
+   76 errors for INV-0310 vs INV-0312). It is accurate but noisy; collapse it
+   into one finding per missing row ("row 7 only appears in INV-0312").
 2. **Scanned PDFs.** Image-only PDFs have no text layer. Rasterise pages in the
    Python service and OCR them (Tesseract is already installed for images).
 3. **Non-invoice documents.** Customs declarations and delivery notes are read

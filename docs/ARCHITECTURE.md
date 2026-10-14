@@ -114,6 +114,27 @@ forming words; spaces with visible room around them are kept.
 Explicit `Label: value` text still wins over layout-derived values, and the
 AI fallback (Stage 20) now sees the better text too.
 
+### Header fields (invoice number, date, supplier, customer)
+
+The labels for these are Khmer in a legacy font and extract as garbage, so they
+cannot be matched by label. `parseHeader` uses structure instead, anchored on
+the English "TAX INVOICE" title and the table header:
+
+- **Invoice number:** the last word of the first line below the title that has
+  an invoice-number shape (3–6 digits, optional short prefix such as `DS26-`;
+  never a phone-length digit run, VAT id, exchange rate or job number).
+- **Date:** the first date-shaped word between the title and the table.
+- **Supplier:** the bank beneficiary ("Account Name: …", typo-tolerant) — the
+  seller; otherwise the first company-suffix line above the title.
+- **Customer:** the first company-suffix line (`CO.,LTD`, `LLC`, …) between the
+  title and the table that isn't the supplier. A leading "COMPANY NAME :" label
+  and glued-on Khmer text are stripped; the name is otherwise kept as printed.
+
+These rules were derived from and are tested against three real invoice
+layouts (five documents). They are heuristics: a layout that differs may leave a
+field empty (never filled with a guess from outside the region), and explicit
+`Label: value` text and the Stage 20 AI fallback still take over where they apply.
+
 Cross-check used during development: on the five real invoices in the sample
 set, the rows read from each table sum exactly to that invoice's separately
 read subtotal, and quantity × unit price equals the amount on every row.

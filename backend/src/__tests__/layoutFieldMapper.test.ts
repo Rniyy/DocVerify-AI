@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { LayoutLine } from "../types/extraction";
-import { isTableHeader, mapLayoutLines, parseItemRow, parseSplitRow } from "../services/fieldMapping/layoutFieldMapper";
+import { isInvoiceNumberWord, isTableHeader, mapLayoutLines, parseItemRow, parseSplitRow } from "../services/fieldMapping/layoutFieldMapper";
 import { mapExtractionToFields } from "../services/fieldMapping";
 import { validateCalculations } from "../services/calculation/calculationValidator";
 
@@ -90,6 +90,110 @@ describe("parseItemRow", () => {
   });
 });
 
+/** Header lines exactly as the layout extractor produced them (Khmer labels are garbled legacy-font text). */
+const headerLines = (rows: [number, string][]): LayoutLine[] => rows.map(([y, text]) => L(y, text));
+const TABLE_HEADER = "Nº Description Qty Unit Price Amount";
+
+describe("header fields from real invoice layouts", () => {
+  it("INV-0310 (VTL template): number and date sit at the end of Khmer-labelled lines; customer is the Latin company line", () => {
+    const lines = headerLines([
+      [60.5, "វេស២ គ្បល ល៊ ឡជីសីកទ ឯ.ក"],
+      [75.3, "S2 Global Logistics Co., Ltd."],
+      [103.9, "House/Building No.:49Room A, Street P01, Phum Bayab, Sangkat Phnom PenhThmey,KhanSenSokPhnom Penh"],
+      [126.0, "រលខ​អត​សត ញ្ញាណ្​ណ្កលម​អតប​VAT NO.:K009-902201072"],
+      [163.9, "TAX INVOICE"],
+      [191.1, "អ្ត្ិលិជន: វ ៀត វរតន លីង ហ្រវ័ វើឌីង (វេមបឌាូ )​ ឯ.ក លលខ​លរៀងវកិ កយ​បត្ត្​: 0310"],
+      [200.5, "VIET TRANS LINK FORWARDING (CAMBODIA) CO ., LTD"],
+      [223.3, "កាល​បរ​លិេេទ: 28.Aug.2026"],
+      [229.0, "#104 Khamko Street, Toulonke Sangkat, Russey Keo District, Phnom Penh"],
+      [246.7, "អតប​​​VATIN: K008-901639301 Exchange Rate 4,046"],
+      [258.7, "Job No. IM-S2-320826"],
+      [282.2, TABLE_HEADER],
+      [547.5, "Account Name: S2 Global Logistics Co.,Ltd."],
+    ]);
+    expect(mapLayoutLines(lines).documentFields).toEqual({
+      invoiceNumber: "0310",
+      date: "28.Aug.2026",
+      supplier: "S2 Global Logistics Co.,Ltd.",
+      customer: "VIET TRANS LINK FORWARDING (CAMBODIA) CO ., LTD",
+    });
+  });
+
+  it("INV-0255 (CHLL): the number precedes its label line, the date ends an English address line", () => {
+    const lines = headerLines([
+      [76.6, "S2 Global Logistics Co., Ltd."],
+      [155.7, "TAX INVOICE"],
+      [173.6, "ស៊ីអេចេិលេិល គ្លូប៊ល ឡូជ៊ីសកទ៊ី 0255"],
+      [177.4, "អ្តិថ្ិជេ: នលខនរៀងវកិ ាយបត្ត:"],
+      [184.7, "CHLL GLOBAL LOGISTIC CO.,LTD"],
+      [209.8, "អា ស័យដ្ឋាេ: #Karnation BuildingE1, BoreySen Sok, 2nd floor, Street 598, Sangkat PhnomPenh Thmey, កាលបរនិឆេទ: 23.July.2026"],
+      [233.6, "អតប ​​​VATIN: K009-901502009 ExchangeRate 4,041"],
+      [245.0, "Job No. IM-S2-270626"],
+      [257.8, "ល.រ បរយាិ យ បរមាិ ណ្ ថ្ថ្លឯកតា ថ្ថ្លទំេិញ"],
+      [266.3, TABLE_HEADER],
+    ]);
+    // supplier falls back to the company named above the title (no Account Name line in this excerpt)
+    expect(mapLayoutLines(lines).documentFields).toEqual({
+      invoiceNumber: "0255",
+      date: "23.July.2026",
+      supplier: "S2 Global Logistics Co., Ltd.",
+      customer: "CHLL GLOBAL LOGISTIC CO.,LTD",
+    });
+  });
+
+  it("INV-0610 (MINEBEA): prefixed number, 'COMPANY NAME :' label stripped, Khmer tail dropped, Account Name typo tolerated", () => {
+    const lines = headerLines([
+      [66.6, "Dolphin Sea AirServices (Cambodia)Co., Ltd"],
+      [112.9, "ទូរស័េហទ លខ៖ 0973903991"],
+      [133.9, "TAX INVOICE"],
+      [146.8, "ឈ្មោះក្រុមហ៊ុន​៖​ មឈី នឈ ៀ​(ឈេម ូឌា) ឈេេឈ ៀងវរិ យក ក្រ​៖​ DS26-0610"],
+      [161.1, "COMPANY NAME : MINEBEA (CAMBODIA) CO.,LTD. កាេ ឈិឆទេ ​៖​ 0៣-រញ្ញា -២០២៦​​​​"],
+      [178.7, "អាស័យដ្ឋាន៖​ Date : 03-Sep-2026"],
+      [198.0, "#ROYAL GROUP PHNOMPENH SPECIAL ECONOMIC ZONE,N.R #.4,SANGKAT KHANTOUK,"],
+      [226.8, "ឈេេអរសត ញ្ញា ណរម​មអរ ​/VATTIN :L001-901800396 Job No: IM-DOL-260903"],
+      [250.2, "NO DESCRIPTION QUANTITY UNIT PRICE AMOUNT"],
+      [560.4, "Accuount Name : Dolphin Sea Air Services (Cambodia) Co.,Ltd សរុប្រួល"],
+    ]);
+    expect(mapLayoutLines(lines).documentFields).toEqual({
+      invoiceNumber: "DS26-0610",
+      date: "03-Sep-2026",
+      supplier: "Dolphin Sea Air Services (Cambodia) Co.,Ltd",
+      customer: "MINEBEA (CAMBODIA) CO.,LTD.",
+    });
+  });
+
+  it("does not treat a phone number, VAT id, exchange rate or job number as the invoice number", () => {
+    for (const word of ["0973903991", "K009-902201072", "4,046", "IM-S2-320826", "28.Aug.2026", "12", "+85515686456"]) {
+      expect(isInvoiceNumberWord(word)).toBe(false);
+    }
+    for (const word of ["0310", "0255", "DS26-0610", "INV-0310", "INV0611"]) {
+      expect(isInvoiceNumberWord(word)).toBe(true);
+    }
+  });
+
+  it("reads no number, date or customer without a title and a table header (nothing guessed)", () => {
+    const lines = headerLines([[10, "VIET TRANS LINK FORWARDING (CAMBODIA) CO ., LTD"], [20, "Something 0310"], [30, "28.Aug.2026"]]);
+    expect(mapLayoutLines(lines).documentFields).toEqual({});
+  });
+
+  it("never reports the supplier as the customer", () => {
+    const lines = headerLines([
+      [10, "TAX INVOICE"],
+      [20, "S2 Global Logistics Co.,Ltd."],
+      [30, "ACME TRADING CO., LTD"],
+      [40, TABLE_HEADER],
+      [50, "Account Name: S2 Global Logistics Co.,Ltd."],
+    ]);
+    expect(mapLayoutLines(lines).documentFields).toMatchObject({ supplier: "S2 Global Logistics Co.,Ltd.", customer: "ACME TRADING CO., LTD" });
+  });
+
+  it("explicit 'Label: value' text still beats the layout-derived header fields", () => {
+    const lines = headerLines([[10, "TAX INVOICE"], [20, "0310"], [30, TABLE_HEADER]]);
+    const doc = mapExtractionToFields({ type: "pdf", pageCount: 1, text: "Invoice Number: INV-777", lines });
+    expect(doc?.documentFields.invoiceNumber).toBe("INV-777");
+  });
+});
+
 describe("table rows beyond the simple one-line shape", () => {
   it("INV-0312: rows without a row number inside the table (two rows per item)", () => {
     const lines = [
@@ -170,7 +274,7 @@ describe("table rows beyond the simple one-line shape", () => {
 describe("mapLayoutLines on real invoice layouts", () => {
   it("INV-0310: pairs labels with the amount column even when an amount shares a line with an account number", () => {
     const { documentFields, lineItems } = mapLayoutLines(inv0310());
-    expect(documentFields).toEqual({ subtotal: 50, tax: 5, totalAmount: 55, currency: "USD" });
+    expect(documentFields).toEqual({ supplier: "S2 Global Logistics Co.,Ltd.", subtotal: 50, tax: 5, totalAmount: 55, currency: "USD" });
     expect(lineItems).toHaveLength(1);
   });
 

@@ -216,6 +216,102 @@ function parseTotals(lines: LayoutLine[]): ExtractedFields {
   return fields;
 }
 
+// ---------------------------------------------------------------------------
+// Header fields (invoice number, date, supplier, customer)
+//
+// On bilingual invoices the labels for these are Khmer in a legacy font and
+// come out garbled, so they can't be matched by label. What is reliable is
+// structure: the values themselves are Latin/digit words with a recognisable
+// shape, sitting between the "TAX INVOICE" title and the table header. These
+// rules were derived from, and are tested against, real invoices from three
+// layouts; they only fill fields that explicit "Label: value" text left empty.
+// ---------------------------------------------------------------------------
+
+const TITLE = /\bTAX\s+INVOICE\b|^\s*INVOICE\s*$/i;
+const DATE_WORD = /^\d{1,2}[.\-/]?[A-Za-z]{3,9}[.\-/]?\d{4}$|^\d{1,2}[-/.]\d{1,2}[-/.]\d{4}$/;
+const INVOICE_NUMBER_WORD = /^[A-Za-z]{0,4}\d{0,4}-?\d{3,6}$/;
+const COMPANY_SUFFIX = /\b(?:CO\s*\.?\s*,?\s*LTD|LTD|LIMITED|LLC|PLC|INC|CORP|CORPORATION)\b\.?/i;
+const ACCOUNT_NAME = /\bAc\w{0,3}ount\s+Name\s*:\s*(.+)$/i;
+const NAME_LABEL = /^(?:company\s+name|customer(?:\s+name)?|buyer|bill\s+to)\s*:\s*/i;
+
+/**
+ * Keeps the Latin part of a value: drops Khmer (and zero-width) text glued on
+ * from a neighbouring column, and a leading "COMPANY NAME :"-style label. The
+ * name itself is otherwise left exactly as printed, only whitespace collapsed.
+ * Because stray ASCII (digits, dashes) can survive from a glued-on Khmer date,
+ * a name containing a company suffix ("CO.,LTD.") is cut right after it.
+ */
+function cleanName(raw: string): string {
+  const cleaned = raw
+    .replace(/[^\x20-\x7E]+/g, " ")
+    .replace(NAME_LABEL, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const suffix = cleaned.match(COMPANY_SUFFIX);
+  return suffix && suffix.index !== undefined ? cleaned.slice(0, suffix.index + suffix[0].length) : cleaned;
+}
+
+const normalizeName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** A bare invoice number: 3–6 digits with an optional short prefix, never a phone-length run of digits. */
+export function isInvoiceNumberWord(word: string): boolean {
+  return INVOICE_NUMBER_WORD.test(word) && (word.match(/\d/g) ?? []).length <= 8;
+}
+
+function findSupplier(lines: LayoutLine[], titleIndex: number): string | undefined {
+  // The bank beneficiary ("Account Name: ...") is the seller.
+  for (const line of lines) {
+    const m = line.text.match(ACCOUNT_NAME);
+    const name = m ? cleanName(m[1]) : "";
+    if (name) return name;
+  }
+  // Otherwise the first company named above the title.
+  const above = titleIndex === -1 ? [] : lines.slice(0, titleIndex);
+  for (const line of above) {
+    const name = cleanName(line.text);
+    if (COMPANY_SUFFIX.test(name)) return name;
+  }
+  return undefined;
+}
+
+function parseHeader(lines: LayoutLine[], tableHeaderIndex: number): ExtractedFields {
+  const fields: ExtractedFields = {};
+  const titleIndex = lines.findIndex((line) => TITLE.test(line.text));
+
+  const supplier = findSupplier(lines, titleIndex);
+  if (supplier) fields.supplier = supplier;
+
+  // Everything below needs both anchors: the title above and the table header below.
+  if (titleIndex === -1 || tableHeaderIndex === -1 || tableHeaderIndex < titleIndex) return fields;
+  const region = lines.slice(titleIndex + 1, tableHeaderIndex);
+
+  for (const line of region) {
+    const last = line.words[line.words.length - 1]?.text;
+    if (last && isInvoiceNumberWord(last)) {
+      fields.invoiceNumber = last;
+      break;
+    }
+  }
+
+  for (const line of region) {
+    const word = line.words.find((w) => DATE_WORD.test(w.text));
+    if (word) {
+      fields.date = word.text;
+      break;
+    }
+  }
+
+  for (const line of region) {
+    const name = cleanName(line.text);
+    if (COMPANY_SUFFIX.test(name) && (!supplier || normalizeName(name) !== normalizeName(supplier))) {
+      fields.customer = name;
+      break;
+    }
+  }
+
+  return fields;
+}
+
 export function mapLayoutLines(lines: LayoutLine[]): LayoutResult {
   const ordered = [...lines].sort((a, b) => a.page - b.page || a.y - b.y);
 
@@ -234,5 +330,5 @@ export function mapLayoutLines(lines: LayoutLine[]): LayoutResult {
       .filter((item): item is ExtractedFields => item !== null);
   }
 
-  return { documentFields: parseTotals(ordered), lineItems };
+  return { documentFields: { ...parseHeader(ordered, headerIndex), ...parseTotals(ordered) }, lineItems };
 }
