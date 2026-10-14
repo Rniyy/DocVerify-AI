@@ -9,6 +9,28 @@ LINE_TOLERANCE = 3.0
 MAX_PAGES = 10
 
 
+def drop_overlapped_spaces(chars: list[dict]) -> list[dict]:
+    """Removes space characters that sit inside a neighbouring glyph's box.
+
+    Some invoice generators emit a literal space whose position overlaps the
+    first digit of a right-aligned amount (e.g. a space at x=542.2 inside a
+    "1" spanning 541.8-545.9). The text stream says "1 1.80", but on the page
+    there is no gap: it reads $11.80. Spaces that no glyph gap separates are
+    not word breaks, so they are dropped before words are formed. Genuine
+    spaces (those with visible room around them) are kept.
+    """
+    glyphs = [c for c in chars if c["text"].strip()]
+
+    def overlapped(space: dict) -> bool:
+        centre = (space["top"] + space["bottom"]) / 2
+        return any(
+            g["x0"] - 0.01 <= space["x0"] < g["x1"] - 0.01 and g["top"] <= centre <= g["bottom"]
+            for g in glyphs
+        )
+
+    return [c for c in chars if c["text"].strip() or not overlapped(c)]
+
+
 def group_words_into_lines(words: list[dict], tolerance: float = LINE_TOLERANCE) -> list[list[dict]]:
     """Clusters words by vertical centre, then orders each cluster left to right."""
     ordered = sorted(words, key=lambda w: (w["top"] + w["bottom"]) / 2)
@@ -44,7 +66,10 @@ def extract_pdf_layout(path: str) -> dict:
     with pdfplumber.open(path) as pdf:
         page_count = len(pdf.pages)
         for page_number, page in enumerate(pdf.pages[:MAX_PAGES], start=1):
-            words = page.extract_words(x_tolerance=2, y_tolerance=3)
+            kept = {id(c) for c in drop_overlapped_spaces(page.chars)}
+            words = page.filter(lambda obj: obj.get("object_type") != "char" or id(obj) in kept).extract_words(
+                x_tolerance=2, y_tolerance=3
+            )
             for cluster in group_words_into_lines(words):
                 lines.append(
                     {

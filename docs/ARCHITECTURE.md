@@ -87,7 +87,11 @@ backend prefers it for PDFs and falls back to `pdf-parse` if it is unavailable.
 
 `fieldMapping/layoutFieldMapper.ts` then reads two things, by structure only:
 
-- **Table rows:** `<no> <description> <qty> [$]<unit price> [$]<amount>`.
+- **Table rows:** read only between the table's header line (one naming
+  Description, Qty and Amount) and the first total label. Handles
+  `<no> <description> <qty> <unit price> <amount>`, rows with no row number, and
+  rows split over two lines (`<no> <qty>` then `<description> <price> <amount>`).
+  Without a recognisable header, only strict numbered one-line rows are read.
 - **Totals:** labels (`TOTAL`, `VAT 10%`, `GRAND TOTAL USD`) paired, top to
   bottom, with the amounts in the page's *amount column* (the right edge shared
   by the most amounts). Pairing happens only when the label and amount counts
@@ -97,9 +101,19 @@ Two rules keep this from corrupting the comparison:
 
 1. **Arithmetic is never used to accept or reject a value.** A row saying
    1 × $50 = $60 must reach the calculation checks, not be silently dropped.
-2. **When a number can't be read reliably, nothing is read.** PDFs sometimes
-   split an amount with a gap (`$ 1 1.80` is $11.80). Those rows/amounts are
-   refused rather than read as `1.80`.
+2. **When a number can't be read reliably, nothing is read.** If an amount
+   still looks split (`$ 1 1.80`), that row/amount is refused rather than read
+   as `1.80`.
+
+Why amounts used to look split: some invoice generators emit a literal space
+character positioned *inside* the first digit of a right-aligned amount, so the
+text stream says `1 1.80` although the page shows `11.80`. The Python extractor
+drops spaces that overlap a neighbouring glyph (`drop_overlapped_spaces`) before
+forming words; spaces with visible room around them are kept.
 
 Explicit `Label: value` text still wins over layout-derived values, and the
 AI fallback (Stage 20) now sees the better text too.
+
+Cross-check used during development: on the five real invoices in the sample
+set, the rows read from each table sum exactly to that invoice's separately
+read subtotal, and quantity × unit price equals the amount on every row.

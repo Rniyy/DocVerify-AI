@@ -14,10 +14,17 @@ import { ExtractedFields } from "../../types/fields";
 
 const MONEY = String.raw`[\d,]+\.\d{2}`;
 
+const MONEY_TAIL = String.raw`[$€£]?\s*(${MONEY})\s*[$€£]?\s+[$€£]?\s*(${MONEY})\s*[$€£]?$`;
+
 // "<row no> <description> <qty> [$] <unit price> [$] <amount>"
-const ITEM_ROW = new RegExp(
-  String.raw`^(\d{1,3})\s+(.*?)\s*(\d+(?:\.\d+)?)\s+[$€£]?\s*(${MONEY})\s*[$€£]?\s+[$€£]?\s*(${MONEY})\s*[$€£]?$`
-);
+const ITEM_ROW_NUMBERED = new RegExp(String.raw`^(\d{1,3})\s+(.*?)\s*(\d+(?:\.\d+)?)\s+${MONEY_TAIL}`);
+// Same, but the row number is optional (inside a recognised table, some rows have none).
+const ITEM_ROW_UNNUMBERED = new RegExp(String.raw`^(?:(\d{1,3})\s+)?(.*?)\s*(\d+(?:\.\d+)?)\s+${MONEY_TAIL}`);
+// A row split over two lines: "<row no> <qty>" then "<description> [$] <unit price> [$] <amount>".
+const ROW_NO_AND_QTY = /^(\d{1,3})\s+(\d+(?:\.\d+)?)$/;
+const DESCRIPTION_AND_PRICES = new RegExp(String.raw`^(.*?)\s*${MONEY_TAIL}`);
+/** The second line of a split row sits this close (in points) below the first. */
+const SPLIT_ROW_MAX_GAP = 12;
 
 const TRAILING_MONEY = new RegExp(String.raw`[$€£]?\s*(${MONEY})\s*[$€£]?$`);
 
@@ -28,24 +35,66 @@ export interface LayoutResult {
   lineItems: ExtractedFields[];
 }
 
-/** Parses one table row; null when the line isn't shaped like an invoice row. */
-export function parseItemRow(text: string): ExtractedFields | null {
-  const match = text.trim().match(ITEM_ROW);
-  if (!match) return null;
-
-  const [, , description, qty, unitPrice, amount] = match;
-  const item: ExtractedFields = {
-    quantity: Number(qty),
-    unitPrice: toNumber(unitPrice),
-    totalAmount: toNumber(amount),
-  };
+function buildItem(description: string, qty: number, unitPrice: string, amount: string): ExtractedFields | null {
   const cleaned = description.trim();
   // A currency symbol in the "description" means a number was split in two by
   // a gap in the PDF's text (e.g. "$ 3 15.00" for $315.00). Reading it would
   // yield a wrong quantity and price, so the row is refused instead.
   if (/[$€£]/.test(cleaned)) return null;
+
+  const item: ExtractedFields = { quantity: qty, unitPrice: toNumber(unitPrice), totalAmount: toNumber(amount) };
   if (cleaned) item.description = cleaned;
   return item;
+}
+
+/**
+ * Parses one single-line table row; null when the line isn't shaped like an
+ * invoice row. `requireRowNumber: false` is for lines already known to be
+ * inside a table, where some rows carry no row number.
+ */
+export function parseItemRow(text: string, options: { requireRowNumber?: boolean } = {}): ExtractedFields | null {
+  const { requireRowNumber = true } = options;
+  const line = text.trim();
+
+  if (requireRowNumber) {
+    const m = line.match(ITEM_ROW_NUMBERED);
+    return m ? buildItem(m[2], Number(m[3]), m[4], m[5]) : null;
+  }
+  const m = line.match(ITEM_ROW_UNNUMBERED);
+  return m ? buildItem(m[2], Number(m[3]), m[4], m[5]) : null;
+}
+
+/** Joins a "<row no> <qty>" line with the "<description> <price> <amount>" line below it. */
+export function parseSplitRow(first: string, second: string): ExtractedFields | null {
+  const head = first.trim().match(ROW_NO_AND_QTY);
+  const tail = second.trim().match(DESCRIPTION_AND_PRICES);
+  return head && tail ? buildItem(tail[1], Number(head[2]), tail[2], tail[3]) : null;
+}
+
+/** The table's header line: it names a description, a quantity and an amount column. */
+export function isTableHeader(text: string): boolean {
+  const lower = text.toLowerCase();
+  return lower.includes("description") && /\bqty\b|quantity/.test(lower) && lower.includes("amount");
+}
+
+function parseTableRows(region: LayoutLine[]): ExtractedFields[] {
+  const items: ExtractedFields[] = [];
+  for (let i = 0; i < region.length; i++) {
+    const single = parseItemRow(region[i].text, { requireRowNumber: false });
+    if (single) {
+      items.push(single);
+      continue;
+    }
+    const next = region[i + 1];
+    if (next && next.page === region[i].page && next.y - region[i].y <= SPLIT_ROW_MAX_GAP) {
+      const split = parseSplitRow(region[i].text, next.text);
+      if (split) {
+        items.push(split);
+        i++;
+      }
+    }
+  }
+  return items;
 }
 
 type TotalKind = "subtotal" | "tax" | "totalAmount";
@@ -170,9 +219,20 @@ function parseTotals(lines: LayoutLine[]): ExtractedFields {
 export function mapLayoutLines(lines: LayoutLine[]): LayoutResult {
   const ordered = [...lines].sort((a, b) => a.page - b.page || a.y - b.y);
 
-  const lineItems = ordered
-    .map((line) => parseItemRow(line.text))
-    .filter((item): item is ExtractedFields => item !== null);
+  // With a recognisable header, rows are read only between it and the first
+  // total label, and may lack a row number or span two lines. Without one,
+  // fall back to strict single-line rows anywhere on the page.
+  const headerIndex = ordered.findIndex((line) => isTableHeader(line.text));
+  let lineItems: ExtractedFields[];
+  if (headerIndex !== -1) {
+    const after = ordered.slice(headerIndex + 1);
+    const end = after.findIndex((line) => classifyLabel(line.text) !== null);
+    lineItems = parseTableRows(end === -1 ? after : after.slice(0, end));
+  } else {
+    lineItems = ordered
+      .map((line) => parseItemRow(line.text))
+      .filter((item): item is ExtractedFields => item !== null);
+  }
 
   return { documentFields: parseTotals(ordered), lineItems };
 }

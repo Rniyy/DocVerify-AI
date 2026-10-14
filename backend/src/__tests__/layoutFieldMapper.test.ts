@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { LayoutLine } from "../types/extraction";
-import { mapLayoutLines, parseItemRow } from "../services/fieldMapping/layoutFieldMapper";
+import { isTableHeader, mapLayoutLines, parseItemRow, parseSplitRow } from "../services/fieldMapping/layoutFieldMapper";
 import { mapExtractionToFields } from "../services/fieldMapping";
 import { validateCalculations } from "../services/calculation/calculationValidator";
 
@@ -87,6 +87,83 @@ describe("parseItemRow", () => {
     "1 Only a description and one amount 50.00",
   ])("ignores a line that isn't a table row: %j", (text) => {
     expect(parseItemRow(text)).toBeNull();
+  });
+});
+
+describe("table rows beyond the simple one-line shape", () => {
+  it("INV-0312: rows without a row number inside the table (two rows per item)", () => {
+    const lines = [
+      L(240, "NO DESCRIPTION QUANTITY UNIT PRICE AMOUNT"),
+      L(270.1, "- MAWB NO.: 61855641950 DATE: 24-08-2026 (55cartons/396kgs) 1 $ 25.00 $ 25.00", 593.6),
+      L(277.9, "1"),
+      L(286.0, "- Chargable weight 396 $ 0.25 $ 99.00", 593.6),
+      L(600, "Grand Total"),
+    ];
+    const { lineItems } = mapLayoutLines(lines);
+    expect(lineItems).toEqual([
+      { description: "- MAWB NO.: 61855641950 DATE: 24-08-2026 (55cartons/396kgs)", quantity: 1, unitPrice: 25, totalAmount: 25 },
+      { description: "- Chargable weight", quantity: 396, unitPrice: 0.25, totalAmount: 99 },
+    ]);
+  });
+
+  it("INV-0610: a row split over two lines (row no + qty, then description + prices)", () => {
+    expect(parseSplitRow("2 1", "ថ្លឈៃ សវារមរម ៊ុងរឺទ័ ឈៅទីលាន TERMINAL HANDLING CHARGE $ 12.00 $ 12.00")).toEqual({
+      description: "ថ្លឈៃ សវារមរម ៊ុងរឺទ័ ឈៅទីលាន TERMINAL HANDLING CHARGE",
+      quantity: 1,
+      unitPrice: 12,
+      totalAmount: 12,
+    });
+    expect(parseSplitRow("2 1", "no prices here")).toBeNull();
+    expect(parseSplitRow("not a head line", "DOCUMENT FEE $ 15.00 $ 15.00")).toBeNull();
+  });
+
+  it("INV-0610: reads a mix of one-line and split rows, and stops at the first total label", () => {
+    const lines = [
+      L(250.2, "NO DESCRIPTION QUANTITY UNIT PRICE AMOUNT"),
+      L(263.3, "1 ឈសវាថល រាទំនិញ CFS HANDLING FEE 1 $ 17.00 $ 17.00", 561.2),
+      L(276.0, "2 1"),
+      L(279.6, "TERMINAL HANDLING CHARGE $ 12.00 $ 12.00", 561.2),
+      L(294.2, "3 1"),
+      L(297.9, "DELIVERY ORDER $ 25.00 $ 25.00", 561.2),
+      L(513.1, "$ 118.00", 560.7),
+      L(521.6, "Sub Total"),
+      L(541.9, "$ 11.80", 560.7),
+      L(548.1, "Bank Name : Canadia Bank PLC VAT10%"),
+      L(570.5, "$ 129.80", 560.7),
+      L(574.6, "Account No : 0066955998888 Grand Total"),
+    ];
+    const { lineItems, documentFields } = mapLayoutLines(lines);
+    expect(lineItems.map((i) => [i.quantity, i.unitPrice, i.totalAmount])).toEqual([
+      [1, 17, 17],
+      [1, 12, 12],
+      [1, 25, 25],
+    ]);
+    expect(documentFields).toEqual({ subtotal: 118, tax: 11.8, totalAmount: 129.8 });
+  });
+
+  it("does not read lines below the totals (e.g. bank details) as rows", () => {
+    const lines = [
+      L(100, "No Description Qty Unit Price Amount"),
+      L(110, "1 Widget 2 $ 5.00 $ 10.00"),
+      L(200, "SUBTOTAL $ 10.00"),
+      L(300, "Ref 9 3 $ 1.00 $ 3.00"), // would parse as a row if it were inside the table
+    ];
+    expect(mapLayoutLines(lines).lineItems).toHaveLength(1);
+  });
+
+  it("without a table header, only strict numbered rows are read", () => {
+    const lines = [L(110, "Widget 2 $ 5.00 $ 10.00"), L(120, "2 Gadget 3 $ 1.00 $ 3.00")];
+    expect(mapLayoutLines(lines).lineItems).toEqual([{ description: "Gadget", quantity: 3, unitPrice: 1, totalAmount: 3 }]);
+  });
+
+  it("recognises a table header by its column names", () => {
+    expect(isTableHeader("NO DESCRIPTION QUANTITY UNIT PRICE AMOUNT")).toBe(true);
+    expect(isTableHeader("Nº Description Qty Unit Price Amount")).toBe(true);
+    expect(isTableHeader("Description of goods")).toBe(false);
+  });
+
+  it("a row-number-less line is still refused if its price was split by a PDF gap", () => {
+    expect(parseItemRow("- Fee 5 $ 3 15.00 $ 1,575.00", { requireRowNumber: false })).toBeNull();
   });
 });
 
