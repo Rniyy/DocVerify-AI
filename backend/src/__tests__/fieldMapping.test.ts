@@ -17,6 +17,17 @@ describe("findFieldKeyForLabel", () => {
     expect(findFieldKeyForLabel(label)).toBe(key);
   });
 
+  it.each(["VAT (TIN) K009", "VAT NO.", "VATTIN", "VAT Reg No", "Tax TIN"])(
+    "never treats the tax-registration label %j as an amount",
+    (label) => {
+      expect(findFieldKeyForLabel(label)).toBeNull();
+    }
+  );
+
+  it("no longer reads a VAT registration number as tax (real MINEBEA invoice line)", () => {
+    expect(mapTextToFields("VAT (TIN) K009-902500680").tax).toBeUndefined();
+  });
+
   it.each(["VATIN", "Last update", "Community", "Exchange Rate", "Account No"])(
     "does not map %j just because it contains a known alias as a substring",
     (label) => {

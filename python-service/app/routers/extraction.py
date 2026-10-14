@@ -6,6 +6,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from app.extraction.docx_extractor import extract_docx
 from app.extraction.image_extractor import extract_image
+from app.extraction.pdf_layout import extract_pdf_layout
 
 router = APIRouter()
 
@@ -16,16 +17,20 @@ HANDLERS = {
     "png": extract_image,
 }
 
+# Opt-in handler: the Node backend asks for it explicitly, so /extract's
+# original behaviour (docx + images only) is unchanged for existing callers.
+LAYOUT_HANDLERS = {"pdf": extract_pdf_layout}
+
 
 @router.post("")
-async def extract(file: UploadFile = File(...)):
+async def extract(file: UploadFile = File(...), layout: bool = False):
     extension = pathlib.Path(file.filename or "").suffix.lstrip(".").lower()
-    handler = HANDLERS.get(extension)
+    handler = (LAYOUT_HANDLERS if layout else HANDLERS).get(extension)
 
     if handler is None:
         raise HTTPException(
             status_code=400,
-            detail=f'Unsupported file type ".{extension}". This service handles: {", ".join(sorted(set(HANDLERS)))}.',
+            detail=f'Unsupported file type ".{extension}". This service handles: {", ".join(sorted(set(LAYOUT_HANDLERS if layout else HANDLERS)))}.',
         )
 
     contents = await file.read()

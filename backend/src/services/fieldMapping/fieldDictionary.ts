@@ -52,11 +52,19 @@ const ALIAS_MATCHERS = (Object.entries(FIELD_ALIASES) as [keyof ExtractedFields,
  * an Excel header cell) refers to. The alias must appear as a whole word or
  * phrase in the label.
  */
+// Tax-registration labels ("VAT (TIN) K009", "VAT NO.", "VATTIN") carry an
+// identifier, never an amount, but contain the word "vat". Real invoices
+// printed "VAT (TIN) K009-902500680", which line-splitting turned into
+// tax = 902500680.
+const REGISTRATION_LABEL = /\btin\b|\bvat\s*\(?\s*tin\b|\bvattin\b|\bvat\s*(no|number|reg\w*)\b/;
+
 export function findFieldKeyForLabel(rawLabel: string): keyof ExtractedFields | null {
   const normalized = rawLabel
     .toLowerCase()
     .replace(/[:*]/g, "")
     .trim();
+
+  if (REGISTRATION_LABEL.test(normalized)) return null;
 
   for (const { key, alias, pattern } of ALIAS_MATCHERS) {
     if (normalized === alias || pattern.test(normalized)) {

@@ -75,3 +75,31 @@ to positional pairing (the original behaviour); items with no counterpart get
 their own row and show as missing in the other documents. Because rows are
 aligned, "Line item N" in the comparison table is the aligned row, which can
 differ from a document's own row number.
+
+## Layout-aware PDF extraction (Stage 21)
+
+`pdf-parse` returns a PDF's text in stream order. For some generators —
+notably bilingual Khmer/English invoices — that order scrambles labels away
+from their values and splits table rows across many lines. The Python service
+now offers `POST /extract?layout=true` (pdfplumber), which clusters words by
+vertical position into visual lines and returns each word's x-range. The Node
+backend prefers it for PDFs and falls back to `pdf-parse` if it is unavailable.
+
+`fieldMapping/layoutFieldMapper.ts` then reads two things, by structure only:
+
+- **Table rows:** `<no> <description> <qty> [$]<unit price> [$]<amount>`.
+- **Totals:** labels (`TOTAL`, `VAT 10%`, `GRAND TOTAL USD`) paired, top to
+  bottom, with the amounts in the page's *amount column* (the right edge shared
+  by the most amounts). Pairing happens only when the label and amount counts
+  agree exactly and a `GRAND TOTAL` label exists; the riel restatement is ignored.
+
+Two rules keep this from corrupting the comparison:
+
+1. **Arithmetic is never used to accept or reject a value.** A row saying
+   1 × $50 = $60 must reach the calculation checks, not be silently dropped.
+2. **When a number can't be read reliably, nothing is read.** PDFs sometimes
+   split an amount with a gap (`$ 1 1.80` is $11.80). Those rows/amounts are
+   refused rather than read as `1.80`.
+
+Explicit `Label: value` text still wins over layout-derived values, and the
+AI fallback (Stage 20) now sees the better text too.

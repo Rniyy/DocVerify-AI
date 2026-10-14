@@ -6,3 +6,4 @@ pytesseract==0.3.13
 Pillow>=12.0.0
 python-dotenv==1.0.1
 anthropic>=0.40.0
+pdfplumber>=0.11

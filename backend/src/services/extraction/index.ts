@@ -2,7 +2,7 @@ import path from "path";
 import { ExtractionResult } from "../../types/extraction";
 import { extractExcel } from "./excelExtractor";
 import { extractPdf } from "./pdfExtractor";
-import { extractViaPythonService } from "./pythonServiceClient";
+import { extractPdfLayoutViaPython, extractViaPythonService } from "./pythonServiceClient";
 
 /**
  * Returns structured content for every type the project supports.
@@ -18,7 +18,9 @@ export async function extractDocument(
 
   switch (ext) {
     case "pdf":
-      return extractPdf(filePath);
+      // Stage 21: prefer the layout-aware extraction; plain pdf-parse text is
+      // the fallback, so the app still works with the Python service down.
+      return (await extractPdfLayoutViaPython(filePath, originalName)) ?? extractPdf(filePath);
     case "xlsx":
       return extractExcel(filePath);
     case "docx":

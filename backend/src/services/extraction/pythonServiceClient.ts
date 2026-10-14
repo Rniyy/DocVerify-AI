@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { config } from "../../config/env";
-import { DocxExtractionResult, ImageExtractionResult } from "../../types/extraction";
+import { DocxExtractionResult, ImageExtractionResult, PdfExtractionResult } from "../../types/extraction";
 
 /**
  * Sends a file to the Python service's /extract endpoint. Used for the
@@ -37,4 +37,32 @@ export async function extractViaPythonService(
   }
 
   return (await response.json()) as DocxExtractionResult | ImageExtractionResult;
+}
+
+/**
+ * Layout-aware PDF extraction (Stage 21): the Python service rebuilds lines
+ * from word positions. Returns null on any failure (service down, timeout,
+ * unreadable PDF) so the caller can fall back to plain pdf-parse text.
+ */
+export async function extractPdfLayoutViaPython(
+  filePath: string,
+  originalName: string
+): Promise<PdfExtractionResult | null> {
+  try {
+    const buffer = await fs.readFile(filePath);
+    const formData = new FormData();
+    formData.append("file", new Blob([buffer]), path.basename(originalName));
+
+    const response = await fetch(`${config.pythonServiceUrl}/extract?layout=true`, {
+      method: "POST",
+      body: formData,
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) return null;
+
+    const result = (await response.json()) as PdfExtractionResult;
+    return result.type === "pdf" && Array.isArray(result.lines) && result.text.trim() !== "" ? result : null;
+  } catch {
+    return null;
+  }
 }
