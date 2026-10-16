@@ -22,6 +22,7 @@ export async function extractDocument(
       // the fallback, so the app still works with the Python service down.
       return (await extractPdfLayoutViaPython(filePath, originalName)) ?? extractPdf(filePath);
     case "xlsx":
+    case "xls":
       return extractExcel(filePath);
     case "docx":
     case "jpg":

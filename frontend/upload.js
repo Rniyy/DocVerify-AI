@@ -5,7 +5,7 @@
  * wiring to the Node.js backend happens in Stage 3/4.
  */
 
-const ACCEPTED_EXTENSIONS = ["pdf", "xlsx", "docx", "jpg", "jpeg", "png"];
+const ACCEPTED_EXTENSIONS = ["pdf", "xlsx", "xls", "docx", "jpg", "jpeg", "png"];
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // keep in sync with backend/.env.example MAX_UPLOAD_SIZE_MB
 const MIN_DOCUMENTS_REQUIRED = 2;
 
@@ -27,6 +27,9 @@ const footerHintEl = document.getElementById("footerHint");
 const maxSizeLabelEl = document.getElementById("maxSizeLabel");
 
 function init() {
+  if (!requireAuth()) return; // redirects to login.html if not signed in
+  renderAccountBar();
+
   maxSizeLabelEl.textContent = `${Math.round(MAX_FILE_SIZE_BYTES / (1024 * 1024))}\u00A0MB`;
   addSlot();
   addSlot();
@@ -46,16 +49,70 @@ function init() {
     render();
   });
 
-  compareBtn.addEventListener("click", () => {
-    // Stage 3+ will POST these files to the Node.js backend.
-    // For now this just confirms the client-side gate works.
-    const readyFiles = slots.filter((s) => s.status === "ready");
-    console.log("Ready to compare:", readyFiles.map((s) => s.file.name));
-    alert(
-      `${readyFiles.length} document(s) validated and ready.\n` +
-      `Backend upload will be wired up in Stage 3.`
-    );
+  compareBtn.addEventListener("click", async () => {
+    const readyFiles = slots.filter((s) => s.status === "ready").map((s) => s.file);
+
+    compareBtn.disabled = true;
+    compareBtn.textContent = "Comparing…";
+    clearSubmitError();
+
+    try {
+      const uploadResult = await uploadDocuments(readyFiles);
+      const documentsMeta = uploadResult.documents;
+
+      const withFields = documentsMeta.filter((d) => d.fields);
+      const skipped = documentsMeta.filter((d) => !d.fields);
+      if (withFields.length < MIN_DOCUMENTS_REQUIRED) {
+        throw new Error(
+          "At least 2 documents need readable content to compare. " +
+          "Check that your files aren't empty or scanned images without selectable text."
+        );
+      }
+
+      const report = await runComparison(
+        withFields.every((d) => typeof d.documentId === "number")
+          ? { documentIds: withFields.map((d) => d.documentId) }
+          : { documents: withFields.map((d) => d.fields), documentNames: withFields.map((d) => d.originalName) }
+      );
+
+      sessionStorage.setItem(
+        "comparisonResult",
+        JSON.stringify({
+          // Order matches the `documents` array sent to /api/comparisons,
+          // so index i here is index i in every report.values array.
+          comparedDocuments: withFields.map((d) => d.originalName),
+          skippedDocuments: skipped.map((d) => ({
+            originalName: d.originalName,
+            reason: d.extractionNote || d.extractionError,
+          })),
+          // Stage 17/20: lets the results page offer "Export CSV" and show
+          // cautions about thinly-read or AI-assisted documents.
+          comparisonId: report.comparisonId ?? null,
+          warnings: withFields
+            .filter((d) => d.extractionWarning)
+            .map((d) => ({ originalName: d.originalName, message: d.extractionWarning })),
+          report,
+        })
+      );
+
+      window.location.href = "results.html";
+    } catch (err) {
+      showSubmitError(err.message || "Something went wrong while comparing documents.");
+      compareBtn.disabled = false;
+      compareBtn.textContent = "Compare Documents →";
+    }
   });
+}
+
+function showSubmitError(message) {
+  const div = document.createElement("div");
+  div.className = "error-item";
+  div.textContent = message;
+  errorListEl.appendChild(div);
+}
+
+function clearSubmitError() {
+  errorListEl.innerHTML = "";
 }
 
 function addSlot() {

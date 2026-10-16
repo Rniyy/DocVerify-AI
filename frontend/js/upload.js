@@ -5,7 +5,7 @@
  * wiring to the Node.js backend happens in Stage 3/4.
  */
 
-const ACCEPTED_EXTENSIONS = ["pdf", "xlsx", "docx", "jpg", "jpeg", "png"];
+const ACCEPTED_EXTENSIONS = ["pdf", "xlsx", "xls", "docx", "jpg", "jpeg", "png"];
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // keep in sync with backend/.env.example MAX_UPLOAD_SIZE_MB
 const MIN_DOCUMENTS_REQUIRED = 2;
 

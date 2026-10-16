@@ -10,12 +10,13 @@ import { AppError } from "../middleware/errorHandler";
 export const UPLOAD_DIR = path.join(__dirname, "..", "..", "uploads", "documents");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-const ALLOWED_EXTENSIONS = ["pdf", "xlsx", "docx", "jpg", "jpeg", "png"];
+const ALLOWED_EXTENSIONS = ["pdf", "xlsx", "xls", "docx", "jpg", "jpeg", "png"];
 
 // Checked alongside the extension so a renamed .exe can't sneak in as "invoice.pdf".
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel", // legacy .xls
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "image/jpeg",
   "image/png",
