@@ -1,5 +1,12 @@
 import { CalculationIssue } from "./calculation";
 
+/**
+ * Field name of the single finding raised when a line item exists in only some
+ * of the documents. Its values are one label per document (the row's
+ * description), with `undefined` where the row is absent.
+ */
+export const MISSING_ROW_FIELD = "lineItem";
+
 export type FieldStatus = "match" | "mismatch" | "semantic-match";
 
 export interface FieldComparisonResult {

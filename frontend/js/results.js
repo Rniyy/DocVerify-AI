@@ -259,10 +259,26 @@ function renderCalculationIssues(docNames, issues) {
 function renderDiscrepancies(docNames, report) {
   const items = [];
 
+  const isBlank = (v) => v === undefined || v === null || v === "";
+
   const collectFieldMismatches = (results, contextLabel) => {
     results
       .filter((r) => r.status === "mismatch")
       .forEach((r) => {
+        // A row that exists in only some documents: one plain-language finding.
+        if (r.field === "lineItem") {
+          const have = docNames.filter((_, i) => !isBlank(r.values[i]));
+          const lack = docNames.filter((_, i) => isBlank(r.values[i]));
+          const what = r.values.find((v) => !isBlank(v));
+          items.push({
+            severity: "error",
+            title: `Row appears in only some documents${contextLabel ? ` (${contextLabel})` : ""}`,
+            body:
+              `"${formatPlain(what)}" appears in ${have.join(", ")} but not in ${lack.join(", ")}. ` +
+              "Check whether it was left out or listed differently.",
+          });
+          return;
+        }
         if (r.aiExplanation) {
           items.push({
             severity: "error",
@@ -331,6 +347,7 @@ function renderDiscrepancies(docNames, report) {
 
 function labelForField(fieldKey) {
   const overrides = {
+    lineItem: "Row present in",
     poNumber: "PO Number",
     hsCode: "HS Code",
     unitPrice: "Unit Price",

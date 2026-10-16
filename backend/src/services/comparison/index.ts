@@ -1,5 +1,12 @@
 import { CalculationIssue } from "../../types/calculation";
-import { ComparisonReport, FieldComparisonResult, LineItemComparisonResult } from "../../types/comparison";
+import {
+  ComparisonReport,
+  FieldComparisonResult,
+  LineItemComparisonResult,
+  MISSING_ROW_FIELD,
+} from "../../types/comparison";
+
+export { MISSING_ROW_FIELD };
 import { ExtractedFields, StructuredDocument } from "../../types/fields";
 import { explainDiscrepancy, semanticCompare } from "../ai/pythonAiClient";
 import { validateCalculations } from "../calculation/calculationValidator";
@@ -32,6 +39,8 @@ const LINE_ITEM_FIELD_ORDER: (keyof ExtractedFields)[] = [
   "hsCode",
 ];
 
+const rowLabel = (item: ExtractedFields): string => item.description ?? item.hsCode ?? "(row present)";
+
 // Only free-text fields where a differently-worded-but-equivalent value is
 // plausible. Never includes numeric fields — AI must not touch those.
 const SEMANTIC_ELIGIBLE_FIELDS = new Set<string>(["description", "supplier", "customer"]);
@@ -39,13 +48,16 @@ const SEMANTIC_ELIGIBLE_FIELDS = new Set<string>(["description", "supplier", "cu
 function compareFieldSet(
   documents: StructuredDocument[],
   fieldOrder: (keyof ExtractedFields)[],
-  getFields: (doc: StructuredDocument, docIndex: number) => ExtractedFields
+  getFields: (doc: StructuredDocument, docIndex: number) => ExtractedFields,
+  /** Compare only these documents (by index); the others stay in `values` but are not judged. */
+  only?: number[]
 ): FieldComparisonResult[] {
   return fieldOrder
     .map((field) => {
       const values = documents.map((doc, docIndex) => getFields(doc, docIndex)[field]);
-      if (values.every((v) => v === undefined)) return null; // nobody has this field — nothing to compare
-      return compareFieldAcrossDocuments(field, values);
+      const considered = only ? only.map((d) => values[d]) : values;
+      if (considered.every((v) => v === undefined)) return null; // nobody has this field — nothing to compare
+      return { ...compareFieldAcrossDocuments(field, considered), values };
     })
     .filter((result): result is FieldComparisonResult => result !== null);
 }
@@ -79,6 +91,8 @@ async function attachFieldExplanation(
   documentNames: string[]
 ): Promise<FieldComparisonResult> {
   if (result.status !== "mismatch") return result;
+  // The missing-row finding is self-explanatory, and the UI words it itself.
+  if (result.field === MISSING_ROW_FIELD) return result;
 
   const explanation = await explainDiscrepancy({
     field: result.field,
@@ -131,11 +145,30 @@ export async function compareDocuments(
   const rowCount = alignedItems[0]?.length ?? 0;
   let lineItemResults: LineItemComparisonResult[] = [];
   for (let i = 0; i < rowCount; i++) {
-    const fields = compareFieldSet(
-      documents,
-      LINE_ITEM_FIELD_ORDER,
-      (_doc, docIndex) => alignedItems[docIndex][i] ?? {}
-    );
+    const cells = alignedItems.map((rows) => rows[i]);
+    const present = cells.flatMap((cell, docIndex) => (cell ? [docIndex] : []));
+    const fields: FieldComparisonResult[] = [];
+
+    // One finding for the row being absent somewhere — not one per field.
+    if (present.length < documents.length) {
+      fields.push({
+        field: MISSING_ROW_FIELD,
+        values: cells.map((cell) => (cell ? rowLabel(cell) : undefined)),
+        status: "mismatch",
+      });
+    }
+    // Still compare the row's fields among the documents that do have it, so a
+    // real quantity/price difference isn't hidden by another document's gap.
+    if (present.length >= 2) {
+      fields.push(
+        ...compareFieldSet(
+          documents,
+          LINE_ITEM_FIELD_ORDER,
+          (_doc, docIndex) => cells[docIndex] ?? {},
+          present.length < documents.length ? present : undefined
+        )
+      );
+    }
     lineItemResults.push({ index: i, fields });
   }
 

@@ -76,39 +76,12 @@ html, body {
   color: var(--slate);
 }
 
-.topbar__step {
-  text-decoration: none;
-}
-
 .topbar__step--active {
   color: var(--ink);
   font-weight: 600;
   border-bottom: 2px solid var(--stamp);
   padding-bottom: 3px;
 }
-
-.topbar__account {
-  font-size: 0.82rem;
-  color: var(--slate);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.topbar__account-email {
-  color: var(--ink-soft);
-}
-
-.topbar__logout {
-  background: none;
-  border: none;
-  color: var(--stamp-dark);
-  font-size: 0.82rem;
-  cursor: pointer;
-  padding: 0;
-}
-
-.topbar__logout:hover { text-decoration: underline; }
 
 /* ---------------------------------------------------------------
    Intake layout

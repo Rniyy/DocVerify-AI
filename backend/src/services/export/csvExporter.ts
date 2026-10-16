@@ -1,4 +1,4 @@
-import { ComparisonReport } from "../../types/comparison";
+import { ComparisonReport, MISSING_ROW_FIELD } from "../../types/comparison";
 
 type Cell = string | number | undefined | null;
 
@@ -63,7 +63,7 @@ export function reportToCsv(report: ComparisonReport, documentNames: string[]): 
         toLine([
           "Line item",
           item.index + 1,
-          r.field,
+          r.field === MISSING_ROW_FIELD ? "Row present in" : r.field,
           r.status,
           "",
           ...padValues(r.values),

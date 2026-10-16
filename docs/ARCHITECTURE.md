@@ -138,3 +138,15 @@ field empty (never filled with a guess from outside the region), and explicit
 Cross-check used during development: on the five real invoices in the sample
 set, the rows read from each table sum exactly to that invoice's separately
 read subtotal, and quantity × unit price equals the amount on every row.
+
+## Missing rows (Stage 24)
+
+After line items are aligned across documents, a row that exists in only some of
+them produces a single `lineItem` finding (`MISSING_ROW_FIELD`) whose values are
+the row's description per document and `undefined` where it is absent. It counts
+as one error, gets no AI explanation (the UI words it itself), and is exported to
+CSV as "Row present in". If the row exists in at least two documents, its fields
+are still compared among just those documents (absent ones are not blamed), so a
+real quantity or price difference is not hidden. Known limit: the AI semantic
+step only runs when every document has the field, so a reworded description on a
+partially present row stays a plain mismatch.

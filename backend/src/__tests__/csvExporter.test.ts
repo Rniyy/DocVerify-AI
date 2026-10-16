@@ -59,6 +59,16 @@ describe("reportToCsv", () => {
     expect(csv).toContain("quantity,match,,-5,-5");
   });
 
+  it("labels the missing-row finding in plain words and leaves absent documents blank", () => {
+    const report: ComparisonReport = {
+      ...baseReport,
+      documentFieldResults: [],
+      calculationIssues: [],
+      lineItemResults: [{ index: 6, fields: [{ field: "lineItem", values: [undefined, "Chargable weight 396"], status: "mismatch" }] }],
+    };
+    expect(lines(reportToCsv(report, ["a.pdf", "b.pdf"]))[1]).toBe("Line item,7,Row present in,mismatch,,,Chargable weight 396,,,,");
+  });
+
   it("falls back to generic document names", () => {
     expect(lines(reportToCsv(baseReport, []))[0]).toContain("Document 1,Document 2");
   });
