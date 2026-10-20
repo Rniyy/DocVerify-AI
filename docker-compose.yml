@@ -27,6 +27,7 @@ services:
       PORT: 8000
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-5}
+      OCR_LANGS: ${OCR_LANGS:-eng}
     ports:
       - "8000:8000"
     healthcheck:

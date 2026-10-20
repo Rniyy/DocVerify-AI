@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { findFieldKeyForLabel } from "../services/fieldMapping/fieldDictionary";
 import { mapTextToFields } from "../services/fieldMapping/textFieldMapper";
-import { looksNumeric } from "../services/fieldMapping/valueParsers";
+import { looksLikeDateValue, looksNumeric } from "../services/fieldMapping/valueParsers";
 
 describe("findFieldKeyForLabel", () => {
   it.each([
@@ -69,5 +69,38 @@ describe("mapTextToFields", () => {
 
   it("ignores non-numeric text under a numeric label", () => {
     expect(mapTextToFields("Quantity: as per attached").quantity).toBeUndefined();
+  });
+});
+
+describe("date values", () => {
+  it.each([
+    ["03-Sep-2026", true],
+    ["31.Aug.2026", true],
+    ["28/08/2026", true],
+    ["2026-08-28", true],
+    ["Aug 28, 2026", true],
+    ["46262", true], // Excel serial: no leading date pattern, left alone
+    ["28-08-2026 1 $ 25.00] $ 25.00", false], // a table row, not a date
+    ["24-08-2026 (55cartons/396kgs) 1", false],
+    ["$ 25.00", false],
+  ])("%s -> accepted: %s", (value, accepted) => {
+    expect(looksLikeDateValue(value)).toBe(accepted);
+  });
+
+  it("does not take a row's 'DATE:' fragment as the invoice date", () => {
+    const text = [
+      "- MAWB 61857542730 DATE: 28-08-2026 1 $ 25.00 $ 25.00",
+      "Invoice Date: 31.Aug.2026",
+    ].join("\n");
+    expect(mapTextToFields(text).date).toBe("31.Aug.2026");
+  });
+
+  it("leaves the date unset when only a row fragment is present", () => {
+    expect(mapTextToFields("- MAWB 61857542730 DATE: 28-08-2026 1 $ 25.00 $ 25.00").date).toBeUndefined();
+  });
+
+  it("does not split a date at its own hyphen when OCR garbles the colon", () => {
+    expect(mapTextToFields("Date ; 03-Sep-2026").date).toBeUndefined();
+    expect(mapTextToFields("Date: 03-Sep-2026").date).toBe("03-Sep-2026");
   });
 });

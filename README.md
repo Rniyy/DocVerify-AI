@@ -6,11 +6,12 @@ extracts structured data from them, and checks whether key fields are
 correct and consistent across documents — both by exact/mathematical
 rules and by AI-assisted semantic matching.
 
-**Current stage: 25.** See [What's new](#whats-new-in-stages-1625) and `docs/ROADMAP.md`.
+**Current stage: 26.** See [What's new](#whats-new-in-stages-1626) and `docs/ROADMAP.md`.
 
 ## Features
 
 - **Upload** 2–10 documents per comparison: PDF, Excel (`.xlsx`, `.xls`), Word (`.docx`), JPG, PNG — up to 15 MB each (`MAX_UPLOAD_SIZE_MB`).
+- **Scanned PDFs** (image-only) are read with OCR and flagged with a "please check against the original" caution. JPG/PNG uploads are OCR'd as plain text.
 - **Extraction** of invoice number, PO number, date, supplier, customer, currency, subtotal, tax, total, weights, HS code, container number, shipping terms, and line items (description, quantity, unit, unit price, amount).
 - **Exact comparison** of every field across documents (numbers within 0.01; text trimmed and case-insensitive), with line items aligned by content so a different product order is not a mismatch.
 - **Calculation checks** per document: quantity × unit price = amount, subtotal + tax = total, sum of line amounts = subtotal, gross weight ≥ net weight.
@@ -92,10 +93,11 @@ DocVerify-AI/
 └── .env.example         # docker-compose variables
 ```
 
-## What's new in Stages 16–25
+## What's new in Stages 16–26
 
 | Stage | What it adds |
 |---|---|
+| 26 | **Scanned PDFs.** Pages with no text layer are rasterised and read with OCR (Tesseract) inside the Python service, then go through the same mapper as any other PDF. Because OCR can misread or lose text, scans are handled conservatively: unclean numbers are refused instead of guessed, totals are read only when the amount sits on the same row as its label, and the user always gets a "scanned document — please check" caution. Also fixes two text-mapper bugs found on scans: a table row's `DATE:` fragment could be taken as the invoice date, and `Date ; 03-Sep-2026` could become the date `Sep-2026`. Up to 3 pages are OCR'd per document. See `docs/ARCHITECTURE.md`. |
 | 25 | **Legacy Excel (`.xls`) uploads** are accepted alongside `.xlsx` (backend filter, extractor, and the upload page). `.xlsm` and `.csv` are still not accepted. |
 | 24 | **Quieter results for missing rows** — a line item that exists in only some documents is now one finding ("row appears in only some documents") instead of a mismatch on every field. Its other fields are still compared among the documents that do have it. On the real INV-0310 vs INV-0312 pair this cut 76 errors to 25. |
 | 21–23 | **Layout-aware PDF reading** — the Python service (`POST /extract?layout=true`, pdfplumber) rebuilds lines from word positions, so a table row is one line again and totals are paired with the amount column. Reads line items (including rows with no row number and rows split over two lines) and subtotal / VAT / grand total from real invoices that the text-stream parser could not, repairs amounts that the PDF's text stream splits (`$ 1 1.80` is really $11.80), and reads invoice number, date, supplier and customer from bilingual invoice headers by structure rather than by (garbled) Khmer labels (see `docs/ARCHITECTURE.md`). Falls back to the old extraction if the Python service is down. Also: VAT/TIN registration numbers are no longer read as a tax amount. |
@@ -184,16 +186,17 @@ the backend by itself, the same names go in `backend/.env`.
 | `CORS_ORIGIN` | any origin | Comma-separated browser origins allowed to call the API. Set it before deploying. |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | `localhost`, `3306`, `doccompare`, —, `doccompare` | MySQL connection. |
 | `MAX_UPLOAD_SIZE_MB` | `15` | Per-file upload limit. |
+| `OCR_LANGS` | `eng` | Tesseract language(s) for scans. Only English is installed in the Docker image; add language packs to `python-service/Dockerfile` before listing more (e.g. `eng+khm`). |
 | `PYTHON_SERVICE_URL` | `http://localhost:8000` | Where the backend finds the Python service. |
 
 ## Testing
 
 ```bash
 # Backend (Vitest): comparison, alignment, validators, CSV, field mapping,
-# layout reading, AI grounding, .xls support, and HTTP-level API tests
+# layout reading (including scans), AI grounding, .xls support, and HTTP-level API tests
 cd backend && npm install && npm test
 
-# Python service (pytest)
+# Python service (pytest; the OCR tests need the tesseract binary and are skipped without it)
 cd python-service && pip install -r requirements-dev.txt && python -m pytest
 # Set DOCVERIFY_SAMPLES=<folder with INV-0310_VTL.pdf> to include the
 # real-invoice test.
@@ -203,7 +206,7 @@ cd python-service && pip install -r requirements-dev.txt && python -m pytest
 
 - **Tuned on three invoice layouts.** The PDF layout rules were built from real bilingual (Khmer/English) invoices. An unfamiliar layout may leave fields empty rather than wrong; it will not invent values.
 - **Excel files** need headers the reader recognises (Description, Qty, Unit Price, Amount, Total…). The table/header logic added for PDFs does not apply to Excel yet.
-- **Scanned (image-only) PDFs** are not supported. Standalone JPG/PNG files are read with OCR.
+- **Scanned PDFs** are read with OCR, which is slower (about 8 s per page, first 3 pages only) and less reliable than a real text layer: on a test scan of an 18-row invoice, 3 rows were recovered, with correct values. Rows OCR can't read cleanly are left out rather than guessed, so a scanned document can show "row appears in only some documents" findings that are really OCR misses. Always check scans against the original. Standalone JPG/PNG uploads still use plain-text OCR without the layout reader.
 - **Customs forms and delivery notes** are read poorly; the layout reader deliberately returns nothing from forms without a grand-total label.
 - **The AI fallback** (Stage 20) has not been run against the live model in this repository's tests; it needs `ANTHROPIC_API_KEY`.
 - **Uploaded files are kept forever** in `backend/uploads`.

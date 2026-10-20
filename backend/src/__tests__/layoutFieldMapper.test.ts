@@ -412,3 +412,41 @@ describe("extractDocument PDF fallback", () => {
     expect(await extractDocument("/f.pdf", "a.pdf")).toMatchObject({ text: "plain" });
   });
 });
+
+describe("scanned pages (ocr option)", () => {
+  it("reads a total only when its amount is on the same visual row", () => {
+    const lines = [
+      L(500, "Sub Total $ 118.00", 560),
+      L(520, "VAT 10% $ 11.80", 560),
+      L(540, "Grand Total $ 129.80", 560),
+    ];
+    expect(mapLayoutLines(lines, { ocr: true }).documentFields).toMatchObject({
+      subtotal: 118,
+      tax: 11.8,
+      totalAmount: 129.8,
+    });
+  });
+
+  it("does not pair leftover amounts with the wrong labels when OCR lost a row", () => {
+    // Real INV-0610 scan: the "$ 118.00" amount was never recognised and the VAT label was
+    // garbled, so two labels and two amounts remain. Pairing them by count would call the
+    // VAT amount the subtotal.
+    const lines = [
+      L(500, "Sub Total"),
+      L(520, "$ 11.80", 560),
+      L(540, "Grand Total $ 129.80", 560),
+    ];
+    const fields = mapLayoutLines(lines, { ocr: true }).documentFields;
+    expect(fields.totalAmount).toBe(129.8);
+    expect(fields.subtotal).toBeUndefined();
+    expect(fields.tax).toBeUndefined();
+  });
+
+  it("takes the right-most amount on a row (the amount column) when a unit price sits beside it", () => {
+    const lines = [L(500, "Sub Total $ 50.00 $ 60.00", 560), L(540, "Grand Total $ 60.00", 560)];
+    // x1 of the 50.00 word is 38 (synthetic), far left of the amount column at 560
+    const fields = mapLayoutLines(lines, { ocr: true }).documentFields;
+    expect(fields.totalAmount).toBe(60);
+    expect(fields.subtotal).toBe(60);
+  });
+});

@@ -148,15 +148,45 @@ export async function enrichWithAi(
   return { document: mergeStructured(rules, grounded), method: "rules+ai" };
 }
 
-/** Human-readable caution shown when a document is still thin after extraction. */
-export function extractionWarning(doc: StructuredDocument | null, method: ExtractionMethod): string | null {
+export interface ScanInfo {
+  ocr?: boolean;
+  ocrConfidence?: number | null;
+  ocrSkippedPages?: number[];
+}
+
+/** Below this mean Tesseract confidence a scan is called out as poor quality. */
+const LOW_OCR_CONFIDENCE = 70;
+
+/**
+ * Human-readable caution shown when a document needs a second look: it was
+ * scanned (read with OCR), it is still thin after extraction, or AI helped.
+ */
+export function extractionWarning(
+  doc: StructuredDocument | null,
+  method: ExtractionMethod,
+  scan: ScanInfo = {}
+): string | null {
   if (!doc) return null;
   const found = Object.values(doc.documentFields).filter((v) => v !== undefined).length;
+  const notes: string[] = [];
+
+  if (scan.ocr) {
+    const skipped = scan.ocrSkippedPages?.length ?? 0;
+    notes.push(
+      "This is a scanned document, read with OCR. Some rows, totals or digits may be missing or misread" +
+        (skipped > 0 ? `, and ${skipped} later page${skipped === 1 ? " was" : "s were"} not read` : "") +
+        " — please check the results against the original."
+    );
+    if (typeof scan.ocrConfidence === "number" && scan.ocrConfidence < LOW_OCR_CONFIDENCE) {
+      notes.push("The scan quality is low, so errors are more likely. A sharper or higher-resolution scan will read better.");
+    }
+  }
   if (found < MIN_DOCUMENT_FIELDS) {
-    return `Only ${found} field${found === 1 ? "" : "s"} could be read from this document, so the comparison may be incomplete.`;
+    notes.push(
+      `Only ${found} field${found === 1 ? "" : "s"} could be read from this document, so the comparison may be incomplete.`
+    );
+  } else if (method === "rules+ai") {
+    notes.push("Some fields were read with AI assistance — please double-check them against the original.");
   }
-  if (method === "rules+ai") {
-    return "Some fields were read with AI assistance — please double-check them against the original.";
-  }
-  return null;
+  return notes.length > 0 ? notes.join(" ") : null;
 }

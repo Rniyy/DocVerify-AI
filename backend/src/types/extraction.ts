@@ -20,6 +20,12 @@ export interface PdfExtractionResult {
   text: string;
   /** Present only when the layout-aware extractor ran (Stage 21). */
   lines?: LayoutLine[];
+  /** True when at least one page had no text layer and was read with OCR (Stage 26). */
+  ocr?: boolean;
+  /** Mean Tesseract word confidence (0-100) over the OCR'd pages. */
+  ocrConfidence?: number | null;
+  /** Pages beyond the OCR page limit that were not read. */
+  ocrSkippedPages?: number[];
 }
 
 export interface DocxExtractionResult {

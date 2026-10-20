@@ -1,5 +1,7 @@
 import pdfplumber
 
+from app.extraction.pdf_ocr import OCR_DPI, needs_ocr, ocr_words
+
 # Words whose vertical centres are within this many points are treated as
 # sitting on the same visual line. Generous enough for baseline jitter between
 # Latin and Khmer glyphs, small enough not to merge neighbouring rows.
@@ -7,6 +9,10 @@ LINE_TOLERANCE = 3.0
 
 # Safety valve for very long documents: the mapper only needs invoice-sized input.
 MAX_PAGES = 10
+
+# OCR is slow (seconds per page), so scanned documents are read for at most this
+# many pages. Pages beyond it are reported in `ocrSkippedPages`.
+MAX_OCR_PAGES = 3
 
 
 def drop_overlapped_spaces(chars: list[dict]) -> list[dict]:
@@ -57,11 +63,19 @@ def extract_pdf_layout(path: str) -> dict:
     store text in an order that scrambles labels away from their values.
     Rebuilding lines from positions puts a table row back on one line.
 
+    Pages with no text layer (scans) are rasterised and OCR'd instead (Stage 26);
+    their words are converted to the same shape, so everything downstream is
+    unchanged. OCR results are flagged so the UI can ask for a double-check.
+
     Returns {"type": "pdf", "pageCount", "text", "lines": [{"page", "y", "text",
-    "words": [{"text", "x0", "x1"}]}]}. `text` is the lines joined with newlines,
-    a drop-in replacement for the plain text extraction.
+    "words": [{"text", "x0", "x1"}]}], "ocr": bool, "ocrPages": [int],
+    "ocrSkippedPages": [int], "ocrConfidence": float | None}. `text` is the lines
+    joined with newlines, a drop-in replacement for the plain text extraction.
     """
     lines: list[dict] = []
+    ocr_pages: list[int] = []
+    ocr_skipped: list[int] = []
+    confidences: list[float] = []
 
     with pdfplumber.open(path) as pdf:
         page_count = len(pdf.pages)
@@ -70,6 +84,14 @@ def extract_pdf_layout(path: str) -> dict:
             words = page.filter(lambda obj: obj.get("object_type") != "char" or id(obj) in kept).extract_words(
                 x_tolerance=2, y_tolerance=3
             )
+            if needs_ocr(len(words)):
+                if len(ocr_pages) >= MAX_OCR_PAGES:
+                    ocr_skipped.append(page_number)
+                    continue
+                words, confidence = ocr_words(page.to_image(resolution=OCR_DPI).original, OCR_DPI)
+                ocr_pages.append(page_number)
+                if words:
+                    confidences.append(confidence)
             for cluster in group_words_into_lines(words):
                 lines.append(
                     {
@@ -88,4 +110,8 @@ def extract_pdf_layout(path: str) -> dict:
         "pageCount": page_count,
         "text": "\n".join(line["text"] for line in lines).strip(),
         "lines": lines,
+        "ocr": bool(ocr_pages),
+        "ocrPages": ocr_pages,
+        "ocrSkippedPages": ocr_skipped,
+        "ocrConfidence": round(sum(confidences) / len(confidences), 1) if confidences else None,
     }

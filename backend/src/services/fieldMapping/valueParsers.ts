@@ -49,6 +49,23 @@ export function parseAmountWithCurrency(raw: string): { amount?: number; currenc
   };
 }
 
+/** A date at the start of a value: 03-Sep-2026, 31.Aug.2026, 28/08/2026, 2026-08-28, Aug 28, 2026. */
+const LEADING_DATE =
+  /^(?:\d{1,2}[.\-/ ]?[A-Za-z]{3,9}[.\-/ ,]*\d{2,4}|\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}|[A-Za-z]{3,9}\.? \d{1,2},? \d{4})/;
+
+/**
+ * A date field must hold a date, not a table row that happens to contain the
+ * word "DATE:" ("- MAWB 6185… DATE: 28-08-2026 1 $ 25.00 $ 25.00"). If figures
+ * follow the date, the value is a row fragment, so it is refused. Values with
+ * no recognisable leading date (Excel serials, ISO timestamps) are left alone.
+ */
+export function looksLikeDateValue(raw: string): boolean {
+  const value = raw.trim();
+  const lead = value.match(LEADING_DATE);
+  if (lead) return !/\d/.test(value.slice(lead[0].length));
+  return !/[$€£]/.test(value);
+}
+
 /**
  * Parses a raw string value for the given field and assigns it onto
  * `fields`, applying the right parsing strategy per field type. Shared by
@@ -61,6 +78,10 @@ export function assignParsedValue(
 ): void {
   if ((key === "quantity" || NUMERIC_FIELDS.has(key)) && !looksNumeric(rawValue)) {
     return; // not a number — leave the field unset rather than store a guess
+  }
+
+  if (key === "date" && !looksLikeDateValue(rawValue)) {
+    return; // a row fragment, not a date — leave it for the layout reader or the user
   }
 
   if (key === "quantity") {

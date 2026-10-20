@@ -75,7 +75,7 @@ export async function uploadDocuments(req: Request, res: Response): Promise<void
         extracted,
         fields,
         extractionMethod,
-        extractionWarning: extractionWarning(fields, extractionMethod),
+        extractionWarning: extractionWarning(fields, extractionMethod, extracted?.type === "pdf" ? extracted : {}),
         extractionError,
         extractionNote:
           extracted === null && !extractionError

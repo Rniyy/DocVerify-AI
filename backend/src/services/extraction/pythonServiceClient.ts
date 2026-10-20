@@ -39,6 +39,10 @@ export async function extractViaPythonService(
   return (await response.json()) as DocxExtractionResult | ImageExtractionResult;
 }
 
+// Text PDFs return in well under a second; scanned PDFs are OCR'd page by page
+// (several seconds each, up to the Python service's page limit).
+const PDF_LAYOUT_TIMEOUT_MS = 120_000;
+
 /**
  * Layout-aware PDF extraction (Stage 21): the Python service rebuilds lines
  * from word positions. Returns null on any failure (service down, timeout,
@@ -56,12 +60,15 @@ export async function extractPdfLayoutViaPython(
     const response = await fetch(`${config.pythonServiceUrl}/extract?layout=true`, {
       method: "POST",
       body: formData,
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(PDF_LAYOUT_TIMEOUT_MS),
     });
     if (!response.ok) return null;
 
     const result = (await response.json()) as PdfExtractionResult;
-    return result.type === "pdf" && Array.isArray(result.lines) && result.text.trim() !== "" ? result : null;
+    // A scan with nothing readable still comes back (flagged `ocr`) so the user is told it was a scan.
+    return result.type === "pdf" && Array.isArray(result.lines) && (result.text.trim() !== "" || result.ocr === true)
+      ? result
+      : null;
   } catch {
     return null;
   }

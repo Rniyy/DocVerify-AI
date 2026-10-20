@@ -162,4 +162,26 @@ describe("extractionWarning", () => {
     expect(extractionWarning(doc, "rules+ai")).toMatch(/double-check/);
     expect(extractionWarning(doc, "rules")).toBeNull();
   });
+
+  it("tells the user a scanned document was read with OCR, even when enough fields were found", () => {
+    const doc = {
+      documentFields: { invoiceNumber: "1", date: "2026", supplier: "A", customer: "B", totalAmount: 5 },
+      lineItems: [],
+    };
+    expect(extractionWarning(doc, "rules", { ocr: true, ocrConfidence: 90 })).toMatch(/scanned document, read with OCR/);
+    expect(extractionWarning(doc, "rules", { ocr: true, ocrConfidence: 90 })).not.toMatch(/quality is low/);
+  });
+
+  it("adds a quality note for low-confidence scans and mentions unread pages", () => {
+    const doc = { documentFields: {}, lineItems: [] };
+    const message = extractionWarning(doc, "rules", { ocr: true, ocrConfidence: 55, ocrSkippedPages: [4, 5] });
+    expect(message).toMatch(/2 later pages were not read/);
+    expect(message).toMatch(/quality is low/);
+    expect(message).toMatch(/Only 0 fields/);
+  });
+
+  it("does not mention OCR for a normal PDF", () => {
+    const doc = { documentFields: { a: 1 }, lineItems: [] } as never;
+    expect(extractionWarning(doc, "rules", { ocr: false })).not.toMatch(/OCR/);
+  });
 });

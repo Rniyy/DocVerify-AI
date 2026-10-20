@@ -1,9 +1,12 @@
 # Roadmap
 
-Ideas for after Stage 24, roughly in order of value.
+Ideas for after Stage 26, roughly in order of value.
 
-1. **Scanned PDFs.** Image-only PDFs have no text layer. Rasterise pages in the
-   Python service and OCR them (Tesseract is already installed for images).
+1. **Better scans.** Stage 26 reads scanned PDFs, but OCR drops rows it can't read
+   cleanly (on a real 18-row invoice scan, 3 rows came back). Ideas: deskew and
+   contrast clean-up before OCR, a second pass on rows that failed, Khmer
+   language data, and running standalone JPG/PNG uploads through the same layout
+   OCR (they still use plain text OCR).
 2. **Non-invoice documents.** Customs declarations and delivery notes are read
    poorly (garbled `(cid:0)` glyphs, headers glued into one value). They need
    their own mappers or the AI fallback.

@@ -22,6 +22,9 @@ export function mapTextToFields(text: string): ExtractedFields {
     const [, rawLabel, rawValue] = match;
     const fieldKey = findFieldKeyForLabel(rawLabel);
     if (!fieldKey) continue;
+    // "Date ; 03-Sep-2026" (OCR reading ":" as ";") splits at the date's own
+    // hyphen, giving the label "Date ; 03". A date label never contains digits.
+    if (fieldKey === "date" && /\d/.test(rawLabel)) continue;
 
     assignParsedValue(fields, fieldKey, rawValue.trim());
   }

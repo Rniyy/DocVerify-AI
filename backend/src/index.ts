@@ -1,9 +1,13 @@
-import { createApp } from "./app";
-import { config } from "./config/env";
+import { Router } from "express";
+import { authenticate } from "../middleware/authenticate";
+import { authRouter } from "./auth.routes";
+import { comparisonsRouter } from "./comparisons.routes";
+import { documentsRouter } from "./documents.routes";
+import { healthRouter } from "./health.routes";
 
-const app = createApp();
+export const apiRouter = Router();
 
-app.listen(config.port, () => {
-  console.log(`AI Document Comparison Assistant backend listening on http://localhost:${config.port}`);
-  console.log(`Health check: http://localhost:${config.port}/api/health`);
-});
+apiRouter.use(healthRouter);
+apiRouter.use("/auth", authRouter);
+apiRouter.use("/documents", authenticate, documentsRouter);
+apiRouter.use("/comparisons", authenticate, comparisonsRouter);

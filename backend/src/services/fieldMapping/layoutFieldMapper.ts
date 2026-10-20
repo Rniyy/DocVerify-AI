@@ -167,6 +167,38 @@ function findAmountColumn(words: MoneyWord[]): number | null {
   return best?.x1 ?? null;
 }
 
+/** How far apart (PDF points) a label and its amount may sit vertically and still be one row. */
+const SAME_ROW_TOLERANCE = 5;
+
+/**
+ * Same-row pairing for OCR'd pages: each label takes the single amount on its
+ * own visual row. A label with no amount, several equally close amounts, or an
+ * amount that another label also claims reads nothing — never a guess.
+ */
+function pairOnSameRow(
+  labels: { line: LayoutLine; label: { kind: TotalKind } }[],
+  words: MoneyWord[],
+  fields: ExtractedFields
+): void {
+  const chosen = labels.map(({ line }) => {
+    const near = words
+      .filter((w) => w.page === line.page && Math.abs(w.y - line.y) <= SAME_ROW_TOLERANCE)
+      .sort((a, b) => Math.abs(a.y - line.y) - Math.abs(b.y - line.y));
+    if (near.length === 0) return null;
+    // Several amounts on the row (e.g. a unit price and an amount): take the
+    // right-most only when it is the unambiguous end of the row.
+    const rightmost = near.reduce((best, w) => (w.x1 > best.x1 ? w : best));
+    return near.every((w) => w === rightmost || w.x1 < rightmost.x1 - COLUMN_TOLERANCE) ? rightmost : null;
+  });
+
+  labels.forEach(({ label }, i) => {
+    const word = chosen[i];
+    if (!word || fields[label.kind] !== undefined) return;
+    const claimedTwice = chosen.some((other, j) => j !== i && other === word);
+    if (!claimedTwice) fields[label.kind] = word.value;
+  });
+}
+
 /**
  * Pairs total labels (TOTAL / VAT / GRAND TOTAL) with the amounts in the
  * amount column below the first label, top to bottom. Label text and amounts
@@ -175,7 +207,7 @@ function findAmountColumn(words: MoneyWord[]): number | null {
  * counts agree exactly; otherwise nothing is guessed. If no amount column can
  * be found, only values printed on the same line as their label are used.
  */
-function parseTotals(lines: LayoutLine[]): ExtractedFields {
+function parseTotals(lines: LayoutLine[], ocr = false): ExtractedFields {
   const fields: ExtractedFields = {};
 
   const labels = lines
@@ -191,6 +223,15 @@ function parseTotals(lines: LayoutLine[]): ExtractedFields {
   }
 
   const words = moneyWords(lines);
+
+  // Scanned pages (Stage 26): OCR can drop a label or an amount, and then a
+  // label count that happens to equal the amount count pairs them wrongly. So
+  // a total is only read when its amount sits on the same visual row.
+  if (ocr) {
+    pairOnSameRow(labels, words, fields);
+    return fields;
+  }
+
   const columnX = findAmountColumn(words);
 
   if (columnX !== null) {
@@ -312,7 +353,12 @@ function parseHeader(lines: LayoutLine[], tableHeaderIndex: number): ExtractedFi
   return fields;
 }
 
-export function mapLayoutLines(lines: LayoutLine[]): LayoutResult {
+export interface LayoutOptions {
+  /** The lines come from OCR of a scanned page: totals use same-row pairing only. */
+  ocr?: boolean;
+}
+
+export function mapLayoutLines(lines: LayoutLine[], options: LayoutOptions = {}): LayoutResult {
   const ordered = [...lines].sort((a, b) => a.page - b.page || a.y - b.y);
 
   // With a recognisable header, rows are read only between it and the first
@@ -330,5 +376,5 @@ export function mapLayoutLines(lines: LayoutLine[]): LayoutResult {
       .filter((item): item is ExtractedFields => item !== null);
   }
 
-  return { documentFields: { ...parseHeader(ordered, headerIndex), ...parseTotals(ordered) }, lineItems };
+  return { documentFields: { ...parseHeader(ordered, headerIndex), ...parseTotals(ordered, options.ocr) }, lineItems };
 }

@@ -150,3 +150,40 @@ are still compared among just those documents (absent ones are not blamed), so a
 real quantity or price difference is not hidden. Known limit: the AI semantic
 step only runs when every document has the field, so a reworded description on a
 partially present row stays a plain mismatch.
+
+## Scanned PDFs (Stage 26)
+
+A scanned PDF has no text layer: every page is a picture. The layout extractor
+(`python-service/app/extraction/pdf_layout.py`) detects a page with fewer than
+5 words, rasterises it at 300 dpi and runs Tesseract (`pdf_ocr.py`,
+`image_to_data`, `--psm 6`). Each recognised word is converted to PDF points
+(`x * 72 / dpi`), so OCR'd pages produce the **same line/word shape** as text
+pages and flow through the same mapper. The response adds `ocr`, `ocrPages`,
+`ocrSkippedPages` and `ocrConfidence`.
+
+What is different for OCR'd documents, and why:
+
+- **Never guess a digit.** Words Tesseract itself scores below 40 are dropped,
+  and a row whose number is not clean (`17.c0`) is refused by the existing
+  numeric rules. A missing row is visible to the user; a misread amount is not.
+- **Totals pair by row, not by count.** On text PDFs a total label and its
+  amount are paired by order when the counts agree. On a scan, OCR can lose a
+  label *and* an amount, and equal counts then pair the wrong ones (a real case:
+  the VAT amount was read as the subtotal). With `mapLayoutLines(lines,
+  { ocr: true })` a total is read only when its amount is on the same visual row
+  (within 5 pt, right-most amount, claimed by one label only).
+- **Always a caution.** `extractionWarning` tells the user the document was
+  scanned and that rows, totals or digits may be missing or misread; it adds a
+  note for low-confidence scans (mean confidence < 70) and for pages beyond the
+  OCR limit.
+- **Limits.** At most 3 pages per document are OCR'd (about 8 s per page); the
+  rest are reported, not silently ignored. The backend allows 120 s for the
+  layout request. Only English is installed by default (`OCR_LANGS`), so Khmer
+  text in a scan is not recognised, which matters little for the numeric and
+  Latin fields the mapper reads.
+
+Two fixes to the text mapper came out of testing on scans, and apply to every
+PDF: a `date` value must be a date (a table row such as `DATE: 28-08-2026 1 $
+25.00` is refused), and a date label never contains digits (`Date ; 03-Sep-2026`
+must not become the label `Date ; 03` with the value `Sep-2026`).
+
