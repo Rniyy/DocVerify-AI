@@ -157,6 +157,42 @@ export interface ScanInfo {
 /** Below this mean Tesseract confidence a scan is called out as poor quality. */
 const LOW_OCR_CONFIDENCE = 70;
 
+const CENT = 0.01;
+
+/**
+ * Arithmetic notes for a scanned document. Nothing is filtered or changed:
+ * OCR can misread a digit with high confidence (a real scan read "35.00" as
+ * "35.60" at 76% confidence), and the document's own numbers are the only
+ * independent hint. So a row that doesn't add up, or rows that don't sum to
+ * the subtotal, are pointed out to the user as a probable misread or missing
+ * row — the values themselves are left exactly as read.
+ */
+function scanArithmeticNotes(doc: StructuredDocument): string[] {
+  const notes: string[] = [];
+
+  const rows = doc.lineItems.filter(
+    (r) => r.quantity !== undefined && r.unitPrice !== undefined && r.totalAmount !== undefined
+  );
+  const broken = rows.filter((r) => Math.abs(r.quantity! * r.unitPrice! - r.totalAmount!) > CENT);
+  if (broken.length > 0) {
+    notes.push(
+      `${broken.length} row${broken.length === 1 ? "" : "s"} read from the scan ${broken.length === 1 ? "doesn't" : "don't"} add up (quantity × unit price ≠ amount), which usually means a misread digit.`
+    );
+  }
+
+  const subtotal = doc.documentFields.subtotal;
+  const amounts = doc.lineItems.map((r) => r.totalAmount).filter((v): v is number => v !== undefined);
+  if (subtotal !== undefined && amounts.length > 0) {
+    const sum = amounts.reduce((a, b) => a + b, 0);
+    if (Math.abs(sum - subtotal) > CENT) {
+      notes.push(
+        `The rows read add up to ${sum.toFixed(2)} but the subtotal reads ${subtotal.toFixed(2)}, so some rows may be missing or misread.`
+      );
+    }
+  }
+  return notes;
+}
+
 /**
  * Human-readable caution shown when a document needs a second look: it was
  * scanned (read with OCR), it is still thin after extraction, or AI helped.
@@ -177,6 +213,7 @@ export function extractionWarning(
         (skipped > 0 ? `, and ${skipped} later page${skipped === 1 ? " was" : "s were"} not read` : "") +
         " — please check the results against the original."
     );
+    notes.push(...scanArithmeticNotes(doc));
     if (typeof scan.ocrConfidence === "number" && scan.ocrConfidence < LOW_OCR_CONFIDENCE) {
       notes.push("The scan quality is low, so errors are more likely. A sharper or higher-resolution scan will read better.");
     }

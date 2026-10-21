@@ -22,7 +22,7 @@ export function mapExtractionToFields(extraction: ExtractionResult | null): Stru
     // Stage 21: when the layout extractor ran, its table rows and totals fill
     // what explicit "Label: value" text didn't provide. Text-derived values
     // keep precedence, matching the "explicit beats inferred" rule.
-    const layout = extraction.type === "pdf" && extraction.lines ? mapLayoutLines(extraction.lines, { ocr: extraction.ocr === true }) : null;
+    const layout = (extraction.type === "pdf" || extraction.type === "image") && extraction.lines ? mapLayoutLines(extraction.lines, { ocr: extraction.ocr === true }) : null;
     const textFields = mapTextToFields(extraction.text);
     const documentFields = { ...(layout?.documentFields ?? {}), ...textFields };
 

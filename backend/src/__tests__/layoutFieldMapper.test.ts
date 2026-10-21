@@ -450,3 +450,19 @@ describe("scanned pages (ocr option)", () => {
     expect(fields.subtotal).toBe(60);
   });
 });
+
+describe("row quantity must be a standalone number", () => {
+  it("refuses a row whose quantity is missing instead of reading a year as the quantity", () => {
+    expect(parseItemRow("- MAWB NO.: 61857542726 DATE: 27-08-2026 $ 25.00 $ 25.00", { requireRowNumber: false })).toBeNull();
+    expect(parseItemRow("3 Courier DATE: 27-08-2026 $ 25.00 $ 25.00")).toBeNull();
+  });
+
+  it("still reads a normal row, and a quantity right after a dated description", () => {
+    expect(parseItemRow("- MAWB NO.: 6185 DATE: 27-08-2026 1 $ 25.00 $ 25.00", { requireRowNumber: false })).toMatchObject({
+      quantity: 1,
+      unitPrice: 25,
+      totalAmount: 25,
+    });
+    expect(parseItemRow("1 Handling fee 2 $ 40.00 $ 80.00")).toMatchObject({ quantity: 2, unitPrice: 40, totalAmount: 80 });
+  });
+});

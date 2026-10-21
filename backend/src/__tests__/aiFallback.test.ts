@@ -184,4 +184,29 @@ describe("extractionWarning", () => {
     const doc = { documentFields: { a: 1 }, lineItems: [] } as never;
     expect(extractionWarning(doc, "rules", { ocr: false })).not.toMatch(/OCR/);
   });
+
+  it("points out scanned rows that don't add up, without changing any value", () => {
+    const doc = {
+      documentFields: { invoiceNumber: "1", date: "d", supplier: "A", customer: "B", subtotal: 50 },
+      lineItems: [
+        { quantity: 1, unitPrice: 15, totalAmount: 15 },
+        { quantity: 1, unitPrice: 35, totalAmount: 35.6 },
+      ],
+    };
+    const message = extractionWarning(doc, "rules", { ocr: true, ocrConfidence: 90 });
+    expect(message).toMatch(/1 row read from the scan doesn't add up/);
+    expect(message).toMatch(/rows read add up to 50\.60 but the subtotal reads 50\.00/);
+    expect(doc.lineItems[1].totalAmount).toBe(35.6);
+  });
+
+  it("adds no arithmetic notes for a scan whose numbers are consistent, or for a normal PDF", () => {
+    const consistent = {
+      documentFields: { invoiceNumber: "1", date: "d", supplier: "A", customer: "B", subtotal: 50 },
+      lineItems: [{ quantity: 2, unitPrice: 25, totalAmount: 50 }],
+    };
+    expect(extractionWarning(consistent, "rules", { ocr: true, ocrConfidence: 90 })).not.toMatch(/add up/);
+    const broken = { ...consistent, lineItems: [{ quantity: 1, unitPrice: 25, totalAmount: 60 }] };
+    // A text PDF's arithmetic problems belong to the calculation checks, not this caution.
+    expect(extractionWarning(broken, "rules")).toBeNull();
+  });
 });

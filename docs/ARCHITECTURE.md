@@ -156,7 +156,7 @@ partially present row stays a plain mismatch.
 A scanned PDF has no text layer: every page is a picture. The layout extractor
 (`python-service/app/extraction/pdf_layout.py`) detects a page with fewer than
 5 words, rasterises it at 300 dpi and runs Tesseract (`pdf_ocr.py`,
-`image_to_data`, `--psm 6`). Each recognised word is converted to PDF points
+`image_to_data`; the layout mode was changed to `--psm 4` in Stage 27). Each recognised word is converted to PDF points
 (`x * 72 / dpi`), so OCR'd pages produce the **same line/word shape** as text
 pages and flow through the same mapper. The response adds `ocr`, `ocrPages`,
 `ocrSkippedPages` and `ocrConfidence`.
@@ -186,4 +186,57 @@ Two fixes to the text mapper came out of testing on scans, and apply to every
 PDF: a `date` value must be a date (a table row such as `DATE: 28-08-2026 1 $
 25.00` is refused), and a date label never contains digits (`Date ; 03-Sep-2026`
 must not become the label `Date ; 03` with the value `Sep-2026`).
+
+## Better scans (Stage 27)
+
+Stage 26 read scans but lost most rows on messy input. Stage 27 was driven by
+measurement: both real invoices (INV-0610, six rows; INV-0312, 18 rows) were
+turned into image-only PDFs, OCR'd under many settings, and each result was
+scored against the text-layer reading of the same invoice. "Wrong" means an OCR
+row whose quantity, unit price and amount match no reference row.
+
+| Setup | Rows recovered (of 24) | Wrong |
+|---|---|---|
+| Stage 26 (psm 6, no clean-up) | 8 | 0 |
+| + `§`→`$` and `0.25]`→`0.25` fixes | 18 | 0 |
+| + `--psm 4` (contrast stretching made no difference on these clean scans; it is kept for greyer, uneven scans, which were not tested) | 22 | 0 |
+| same, lower confidence cut-off (20) | 23 | 1 in one variant, so not adopted |
+| scan tilted 1.5°, no deskew | 1 | 0 |
+| scan tilted 1.5°, with deskew | 17 | 0 |
+| 1200 px JPEG, tilted, quality 60 (INV-0610 / INV-0312) | 4 of 6 / 5 of 18 | 0 |
+
+Caveat: the scans are renderings of two PDFs, not photographs, so real-world
+results will vary. The numbers show direction, not a guarantee.
+
+What the pipeline does (`python-service/app/extraction/pdf_ocr.py`):
+
+1. Greyscale and stretch contrast. Only the *bright* end is clipped
+   (`BRIGHT_ONLY_CUTOFF`). A symmetric cutoff erased the text of short
+   documents, because ink is far below 1% of a sparse page's pixels.
+2. Estimate and correct skew (projection profile over ±5°, exact to 0.1° on
+   the test invoices); tilts under 0.3° are left alone.
+3. Tesseract `--psm 4`, words under confidence 40 dropped.
+4. Fix only the two systematic confusions: a lone `§` is `$`, and a `]` glued to
+   the end of a number is a table border. Digits and words are never altered.
+
+JPG/PNG uploads (`image_extractor.py`) now take the same path: EXIF rotation is
+applied, small images are enlarged to 2000 px wide, and word positions are
+reported in A4 points whatever the image's pixel size, so the layout mapper's
+tolerances behave the same as for a PDF. The response carries `lines`, `ocr`
+and `ocrConfidence`, and the backend maps images through the layout reader.
+
+Two decisions worth knowing:
+
+- **Confidence cannot find misread digits.** On a real photo Tesseract read
+  `35.00` as `35.60` at confidence 76, higher than several correct numbers
+  (54–68). A threshold would drop good values and keep the bad one. Values are
+  therefore not filtered by confidence beyond the cut-off, and not by
+  arithmetic either (the rule from Stage 21 stands). Instead, for scanned
+  documents only, `extractionWarning` points out rows where quantity × unit
+  price ≠ amount and rows that don't sum to the subtotal, as probable misreads
+  or missing rows. The values are left exactly as read.
+- **A parser bug that OCR exposed.** The row pattern allowed the quantity to be
+  the tail of a glued token, so a row with its quantity missing
+  (`DATE: 27-08-2026 $ 25.00 $ 25.00`) gave a quantity of 2026. The quantity
+  must now be a standalone number (`(?<!\S)`), for every PDF, not just scans.
 

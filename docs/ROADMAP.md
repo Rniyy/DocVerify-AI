@@ -1,12 +1,12 @@
 # Roadmap
 
-Ideas for after Stage 26, roughly in order of value.
+Ideas for after Stage 27, roughly in order of value.
 
-1. **Better scans.** Stage 26 reads scanned PDFs, but OCR drops rows it can't read
-   cleanly (on a real 18-row invoice scan, 3 rows came back). Ideas: deskew and
-   contrast clean-up before OCR, a second pass on rows that failed, Khmer
-   language data, and running standalone JPG/PNG uploads through the same layout
-   OCR (they still use plain text OCR).
+1. **Scans, round three.** Remaining weak spots: pages rotated 90° or upside down
+   (needs Tesseract orientation detection), rows OCR still can't read (a second
+   pass on just the failed rows, cropped and enlarged), Khmer language data,
+   and testing on real phone photos and flatbed scans, since the measurements so
+   far use renderings of two PDFs.
 2. **Non-invoice documents.** Customs declarations and delivery notes are read
    poorly (garbled `(cid:0)` glyphs, headers glued into one value). They need
    their own mappers or the AI fallback.

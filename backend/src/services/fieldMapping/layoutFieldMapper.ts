@@ -16,10 +16,12 @@ const MONEY = String.raw`[\d,]+\.\d{2}`;
 
 const MONEY_TAIL = String.raw`[$€£]?\s*(${MONEY})\s*[$€£]?\s+[$€£]?\s*(${MONEY})\s*[$€£]?$`;
 
-// "<row no> <description> <qty> [$] <unit price> [$] <amount>"
-const ITEM_ROW_NUMBERED = new RegExp(String.raw`^(\d{1,3})\s+(.*?)\s*(\d+(?:\.\d+)?)\s+${MONEY_TAIL}`);
+// "<row no> <description> <qty> [$] <unit price> [$] <amount>". The quantity must be a
+// standalone number: `(?<!\S)` stops it being the tail of a glued token, which would
+// turn "DATE: 27-08-2026 $ 25.00 $ 25.00" (quantity missing) into a quantity of 2026.
+const ITEM_ROW_NUMBERED = new RegExp(String.raw`^(\d{1,3})\s+(.*?)\s*(?<!\S)(\d+(?:\.\d+)?)\s+${MONEY_TAIL}`);
 // Same, but the row number is optional (inside a recognised table, some rows have none).
-const ITEM_ROW_UNNUMBERED = new RegExp(String.raw`^(?:(\d{1,3})\s+)?(.*?)\s*(\d+(?:\.\d+)?)\s+${MONEY_TAIL}`);
+const ITEM_ROW_UNNUMBERED = new RegExp(String.raw`^(?:(\d{1,3})\s+)?(.*?)\s*(?<!\S)(\d+(?:\.\d+)?)\s+${MONEY_TAIL}`);
 // A row split over two lines: "<row no> <qty>" then "<description> [$] <unit price> [$] <amount>".
 const ROW_NO_AND_QTY = /^(\d{1,3})\s+(\d+(?:\.\d+)?)$/;
 const DESCRIPTION_AND_PRICES = new RegExp(String.raw`^(.*?)\s*${MONEY_TAIL}`);

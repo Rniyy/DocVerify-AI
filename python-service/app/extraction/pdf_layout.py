@@ -56,6 +56,19 @@ def group_words_into_lines(words: list[dict], tolerance: float = LINE_TOLERANCE)
     return [sorted(cluster, key=lambda w: w["x0"]) for cluster in clusters]
 
 
+def words_to_lines(words: list[dict], page_number: int) -> list[dict]:
+    """Groups words into visual lines in the shape the Node mapper reads."""
+    return [
+        {
+            "page": page_number,
+            "y": round(sum((w["top"] + w["bottom"]) / 2 for w in cluster) / len(cluster), 1),
+            "text": " ".join(w["text"] for w in cluster),
+            "words": [{"text": w["text"], "x0": round(w["x0"], 1), "x1": round(w["x1"], 1)} for w in cluster],
+        }
+        for cluster in group_words_into_lines(words)
+    ]
+
+
 def extract_pdf_layout(path: str) -> dict:
     """Reads a PDF using word coordinates instead of the file's text stream.
 
@@ -92,18 +105,7 @@ def extract_pdf_layout(path: str) -> dict:
                 ocr_pages.append(page_number)
                 if words:
                     confidences.append(confidence)
-            for cluster in group_words_into_lines(words):
-                lines.append(
-                    {
-                        "page": page_number,
-                        "y": round(sum((w["top"] + w["bottom"]) / 2 for w in cluster) / len(cluster), 1),
-                        "text": " ".join(w["text"] for w in cluster),
-                        "words": [
-                            {"text": w["text"], "x0": round(w["x0"], 1), "x1": round(w["x1"], 1)}
-                            for w in cluster
-                        ],
-                    }
-                )
+            lines.extend(words_to_lines(words, page_number))
 
     return {
         "type": "pdf",

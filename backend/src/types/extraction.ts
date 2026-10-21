@@ -36,6 +36,10 @@ export interface DocxExtractionResult {
 export interface ImageExtractionResult {
   type: "image";
   text: string;
+  /** Positioned OCR lines (Stage 27), same shape as a PDF's layout lines. */
+  lines?: LayoutLine[];
+  ocr?: boolean;
+  ocrConfidence?: number | null;
 }
 
 export type ExcelCellValue = string | number | boolean | null;

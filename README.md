@@ -6,12 +6,12 @@ extracts structured data from them, and checks whether key fields are
 correct and consistent across documents — both by exact/mathematical
 rules and by AI-assisted semantic matching.
 
-**Current stage: 26.** See [What's new](#whats-new-in-stages-1626) and `docs/ROADMAP.md`.
+**Current stage: 27.** See [What's new](#whats-new-in-stages-1627) and `docs/ROADMAP.md`.
 
 ## Features
 
 - **Upload** 2–10 documents per comparison: PDF, Excel (`.xlsx`, `.xls`), Word (`.docx`), JPG, PNG — up to 15 MB each (`MAX_UPLOAD_SIZE_MB`).
-- **Scanned PDFs** (image-only) are read with OCR and flagged with a "please check against the original" caution. JPG/PNG uploads are OCR'd as plain text.
+- **Scanned PDFs and photos** (image-only PDFs, JPG, PNG) are read with OCR and flagged with a "please check against the original" caution.
 - **Extraction** of invoice number, PO number, date, supplier, customer, currency, subtotal, tax, total, weights, HS code, container number, shipping terms, and line items (description, quantity, unit, unit price, amount).
 - **Exact comparison** of every field across documents (numbers within 0.01; text trimmed and case-insensitive), with line items aligned by content so a different product order is not a mismatch.
 - **Calculation checks** per document: quantity × unit price = amount, subtotal + tax = total, sum of line amounts = subtotal, gross weight ≥ net weight.
@@ -93,10 +93,11 @@ DocVerify-AI/
 └── .env.example         # docker-compose variables
 ```
 
-## What's new in Stages 16–26
+## What's new in Stages 16–27
 
 | Stage | What it adds |
 |---|---|
+| 27 | **Better scans.** Scanned pages are now straightened (deskew) and contrast-stretched before OCR, the page-layout mode was changed to one that reads tables better, and the two systematic OCR confusions seen on invoices are fixed (`§` for `$`, a table border stuck to a number as `0.25]`). On scans made from your real invoices, recovered rows went from 8 of 24 to 22 of 24 with no wrong values, and a 1.5° tilt that previously lost nearly everything now reads 17 of 24. **JPG/PNG uploads now use the same pipeline** and the layout reader (before, they were plain text only) and get the same caution. For scanned documents the caution also says when a row doesn't add up or the rows don't sum to the subtotal, since OCR can misread a digit with high confidence; the values themselves are never changed or dropped for that reason. Two bugs fixed on the way: contrast stretching could erase the text of a short document, and a row with a missing quantity could read the year of a date (`27-08-2026`) as quantity 2026. See `docs/ARCHITECTURE.md`. |
 | 26 | **Scanned PDFs.** Pages with no text layer are rasterised and read with OCR (Tesseract) inside the Python service, then go through the same mapper as any other PDF. Because OCR can misread or lose text, scans are handled conservatively: unclean numbers are refused instead of guessed, totals are read only when the amount sits on the same row as its label, and the user always gets a "scanned document — please check" caution. Also fixes two text-mapper bugs found on scans: a table row's `DATE:` fragment could be taken as the invoice date, and `Date ; 03-Sep-2026` could become the date `Sep-2026`. Up to 3 pages are OCR'd per document. See `docs/ARCHITECTURE.md`. |
 | 25 | **Legacy Excel (`.xls`) uploads** are accepted alongside `.xlsx` (backend filter, extractor, and the upload page). `.xlsm` and `.csv` are still not accepted. |
 | 24 | **Quieter results for missing rows** — a line item that exists in only some documents is now one finding ("row appears in only some documents") instead of a mismatch on every field. Its other fields are still compared among the documents that do have it. On the real INV-0310 vs INV-0312 pair this cut 76 errors to 25. |
@@ -193,7 +194,7 @@ the backend by itself, the same names go in `backend/.env`.
 
 ```bash
 # Backend (Vitest): comparison, alignment, validators, CSV, field mapping,
-# layout reading (including scans), AI grounding, .xls support, and HTTP-level API tests
+# layout reading (including scans and photos), AI grounding, .xls support, and HTTP-level API tests
 cd backend && npm install && npm test
 
 # Python service (pytest; the OCR tests need the tesseract binary and are skipped without it)
@@ -206,7 +207,7 @@ cd python-service && pip install -r requirements-dev.txt && python -m pytest
 
 - **Tuned on three invoice layouts.** The PDF layout rules were built from real bilingual (Khmer/English) invoices. An unfamiliar layout may leave fields empty rather than wrong; it will not invent values.
 - **Excel files** need headers the reader recognises (Description, Qty, Unit Price, Amount, Total…). The table/header logic added for PDFs does not apply to Excel yet.
-- **Scanned PDFs** are read with OCR, which is slower (about 8 s per page, first 3 pages only) and less reliable than a real text layer: on a test scan of an 18-row invoice, 3 rows were recovered, with correct values. Rows OCR can't read cleanly are left out rather than guessed, so a scanned document can show "row appears in only some documents" findings that are really OCR misses. Always check scans against the original. Standalone JPG/PNG uploads still use plain-text OCR without the layout reader.
+- **Scans and photos** are read with OCR, which is slower (about 8 s per page, first 3 pages only) and less reliable than a real text layer. Measured on scans made from your real invoices: clean 200+ dpi scans recovered 22 of 24 rows with correct values; small (about 1200 px wide), compressed, tilted photos recovered 4 of 6 and 5 of 18. OCR can also misread a digit with high confidence (it read `35.00` as `35.60` once), which confidence scores cannot catch, so values are never filtered by arithmetic. Instead the caution tells you when a row or the subtotal doesn't add up. Rows OCR can't read cleanly are left out rather than guessed, so a scanned document can show "row appears in only some documents" findings that are really OCR misses. For best results use a flat, well-lit scan of at least 200 dpi, and always check against the original. Pages rotated by 90° or more are not corrected.
 - **Customs forms and delivery notes** are read poorly; the layout reader deliberately returns nothing from forms without a grand-total label.
 - **The AI fallback** (Stage 20) has not been run against the live model in this repository's tests; it needs `ANTHROPIC_API_KEY`.
 - **Uploaded files are kept forever** in `backend/uploads`.
